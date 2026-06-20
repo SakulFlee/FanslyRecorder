@@ -6,13 +6,43 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 
+def login(args):
+    print("Opening browser for Fansly login...")
+    print("Please log in to Fansly in the browser window that opens.")
+    print("After logging in, press Enter here to save the session.")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto("https://fansly.com", wait_until="load")
+
+        input("Press Enter after you have logged in...")
+
+        context.storage_state(path=args.storage_state)
+        print(f"Authentication state saved to {args.storage_state}")
+
+        page.close()
+        browser.close()
+
+
 def run():
     parser = argparse.ArgumentParser(description="Fansly stream recorder")
-    parser.add_argument("--url", required=True, help="Stream URL to record")
+    parser.add_argument("--url", help="Stream URL to record")
     parser.add_argument("-o", "--output", help="Output file path (default: live_recording_<timestamp>.ts)")
+    parser.add_argument("--login", action="store_true", help="Interactive login to save authentication state")
+    parser.add_argument("--storage-state", default="fansly_auth.json", help="Path to saved auth state file (default: fansly_auth.json)")
     parser.add_argument("--cdp-url", default="http://localhost:9222", help="CDP URL for existing browser (default: http://localhost:9222)")
     parser.add_argument("--monitor-time", type=int, default=15, help="Seconds to wait for stream playlist (default: 15)")
     args = parser.parse_args()
+
+    if args.login:
+        login(args)
+        return
+
+    if not args.url:
+        print("Error: --url is required for recording mode")
+        sys.exit(1)
 
     output = args.output or f"live_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
 
