@@ -10,8 +10,11 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
-      # Python version
-      pyEnv = pkgs.python314;
+      # Python environment with all required packages
+      pyEnv = pkgs.python314.withPackages (ps: with ps; [
+        playwright
+        greenlet
+      ]);
     in
     {
       devShells.${system}.default = pkgs.mkShell {
@@ -23,9 +26,8 @@
           pkgs.ffmpeg
           pkgs.streamlink
 
-          # Python and dependencies
+          # Python and dependencies (playwright, greenlet)
           pyEnv
-          pyEnv.pkgs.playwright
         ];
       };
     };
