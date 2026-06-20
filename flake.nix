@@ -9,14 +9,24 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+
+      # Python version
+      pyEnv = pkgs.python314;
     in
     {
       devShells.${system}.default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          git
-          python
-          ffmpeg
+        buildInputs = [
+          # Dev tools
+          pkgs.git
+          
+          # Required tools to run
+          pkgs.ffmpeg
+          pkgs.streamlink
+
+          # Python and dependencies
+          pyEnv
+          pyEnv.pkgs.playwright
         ];
-      }
-    }
+      };
+    };
 }
