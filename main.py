@@ -109,8 +109,23 @@ def record_loop(args):
             )
 
             try:
+                restart = False
+
                 while proc.poll() is None:
+                    if latest_m3u8 and latest_m3u8 != current_m3u8:
+                        print(f"\n[NEXT] Stream URL refreshed, re-launching...", flush=True)
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                        current_m3u8 = latest_m3u8
+                        restart = True
+                        break
                     page.wait_for_timeout(500)
+
+                if restart:
+                    continue
 
                 if proc.returncode != 0:
                     print(f"\n[WARNING] Streamlink exited with code {proc.returncode}",
