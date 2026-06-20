@@ -1,7 +1,6 @@
 import argparse
 import os.path
 import subprocess
-import time
 import sys
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -45,8 +44,11 @@ def capture_stream(context, url, monitor_time):
     except Exception as e:
         print(f"[WARNING] Page load took a long time or timed out: {e}", file=sys.stderr, flush=True)
 
-    print(f"Monitoring background network traffic for {monitor_time} seconds...", flush=True)
-    time.sleep(monitor_time)
+    print(f"Monitoring background network traffic for up to {monitor_time} seconds...", flush=True)
+    for _ in range(monitor_time):
+        if captured_urls:
+            break
+        page.wait_for_timeout(1000)
 
     if not captured_urls:
         print("\n[ERROR] No m3u8 URL captured.", file=sys.stderr, flush=True)
