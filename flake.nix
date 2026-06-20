@@ -17,10 +17,12 @@
           pkgs.ffmpeg
           pkgs.python314
           pkgs.python314Packages.playwright
+          pkgs.playwright-driver.browsers
         ];
 
         shellHook = ''
           export PATH="${pkgs.streamlink}/bin:$PATH"
+          export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
         '';
       };
     };
