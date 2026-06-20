@@ -26,12 +26,12 @@ def login(args):
         browser.close()
 
 
-def make_output_path(template):
+def make_output_path(template, streamer):
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     if template:
         base, ext = os.path.splitext(template)
         return f"{base}_{ts}{ext}"
-    return f"live_recording_{ts}.ts"
+    return f"{streamer}_{ts}.ts"
 
 
 def build_streamlink_cmd(m3u8_url, cookie_string, output):
@@ -65,6 +65,7 @@ def record_loop(args):
             context = browser.contexts[0]
             owns_browser = False
 
+        streamer = args.url.rstrip('/').split('/')[-1]
         page = context.new_page()
         current_m3u8 = None
         latest_m3u8 = None
@@ -97,7 +98,7 @@ def record_loop(args):
 
         while True:
             cookie_string = get_cookie_string(context)
-            output = make_output_path(args.output)
+            output = make_output_path(args.output, streamer)
 
             print(f"\nStarting stream recording to {output}...", flush=True)
             print("Press Ctrl+C to stop.", flush=True)
