@@ -1,0 +1,25 @@
+when:
+  event: tag
+  branch: main
+
+steps:
+  create-release:
+    image: alpine:latest
+    environment:
+      FORGEJO_PASSWORD:
+        from_secret: FORGEJO_PASSWORD
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        curl -X 'POST' "https://forgejo.sakul-flee.de/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
+             -H "accept: application/json" \
+             -H "Authorization: Bearer $FORGEJO_PASSWORD" \
+             -H "Content-Type: application/json" \
+             -d "{
+               \"tag_name\": \"${CI_COMMIT_TAG}\",
+               \"target_commitish\": \"${CI_COMMIT_SHA}\",
+               \"name\": \"Release ${CI_COMMIT_TAG}\",
+               \"body\": \"Automatic release from Woodpecker CI Build #${CI_PIPELINE_NUMBER}\",
+               \"draft\": false,
+               \"prerelease\": false
+             }"

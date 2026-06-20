@@ -7,3 +7,11 @@ fansly_auth.json
 # Recorded output
 *.ts
 
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Nix build result
+result
+
