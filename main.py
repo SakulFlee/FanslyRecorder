@@ -1,36 +1,36 @@
+import argparse
 import subprocess
 import time
 import sys
+from datetime import datetime
 from playwright.sync_api import sync_playwright
 
-# ==================== CONFIGURATION ====================
-TARGET_URL = "https://fansly.com/live/test"  # Replace with your URL
-OUTPUT_FILE = "live_recording.ts"                             # Name of the output file
-CDP_URL = "http://localhost:9222"                             # Brave debugging port
-MONITOR_TIME = 15                                             # Time (seconds) to wait for the stream link
-# ========================================================
 
 def run():
+    parser = argparse.ArgumentParser(description="Fansly stream recorder")
+    parser.add_argument("--url", required=True, help="Stream URL to record")
+    parser.add_argument("-o", "--output", help="Output file path (default: live_recording_<timestamp>.ts)")
+    parser.add_argument("--cdp-url", default="http://localhost:9222", help="CDP URL for existing browser (default: http://localhost:9222)")
+    parser.add_argument("--monitor-time", type=int, default=15, help="Seconds to wait for stream playlist (default: 15)")
+    args = parser.parse_args()
+
+    output = args.output or f"live_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
+
     with sync_playwright() as p:
-        print(f"Connecting to your running Brave instance on {CDP_URL}...")
-        
+        print(f"Connecting to your running Brave instance on {args.cdp_url}...")
+
         try:
-            # Connect directly to your open browser
-            browser = p.chromium.connect_over_cdp(CDP_URL)
+            browser = p.chromium.connect_over_cdp(args.cdp_url)
         except Exception as e:
             print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?")
             print(f"Details: {e}")
             sys.exit(1)
-        
-        # Access your open profile/session context
+
         context = browser.contexts[0]
-        
-        # Open a fresh tab in your existing window
         page = context.new_page()
 
         captured_urls = []
 
-        # Network interceptor looking for the stream playlist
         def handle_request(request):
             url = request.url
             if ".m3u8" in url and "analytics" not in url:
@@ -39,14 +39,14 @@ def run():
 
         page.on("request", handle_request)
 
-        print(f"Navigating to {TARGET_URL}...")
+        print(f"Navigating to {args.url}...")
         try:
-            page.goto(TARGET_URL, wait_until="load", timeout=60000)
+            page.goto(args.url, wait_until="load", timeout=60000)
         except Exception as e:
             print(f"[WARNING] Page load took a long time or timed out: {e}")
 
-        print(f"Monitoring background network traffic for {MONITOR_TIME} seconds...")
-        time.sleep(MONITOR_TIME)
+        print(f"Monitoring background network traffic for {args.monitor_time} seconds...")
+        time.sleep(args.monitor_time)
 
         if not captured_urls:
             print("\n[ERROR] No m3u8 URL captured.")
@@ -54,34 +54,29 @@ def run():
             page.close()
             return
 
-        # Pick the latest captured URL (helps skip initial ad playlists)
         final_m3u8 = captured_urls[-1]
-        
-        # Scrape all live cookies associated with your authenticated profile session
         cookies = context.cookies()
         cookie_string = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-
-        # Safely close only the tab created by this script
         page.close()
 
-    # Pass the authenticated stream over to Streamlink
     print(f"\nHanding stream link and active login session over to Streamlink...")
-    print(f"Recording to file: {OUTPUT_FILE}")
+    print(f"Recording to file: {output}")
     print("Press Ctrl+C inside this terminal window to stop recording.")
-    
+
     streamlink_cmd = [
         "streamlink",
         f"hlsvariant://{final_m3u8}",
         "best",
-        "-o", OUTPUT_FILE,
+        "-o", output,
         "--http-header", f"Cookie={cookie_string}",
         "--http-header", "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     ]
-    
+
     try:
         subprocess.run(streamlink_cmd)
     except KeyboardInterrupt:
         print("\nRecording stopped by user. File saved.")
+
 
 if __name__ == "__main__":
     run()
