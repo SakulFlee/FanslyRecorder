@@ -1,5 +1,5 @@
 import argparse
-import os.path
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -133,13 +133,13 @@ def record_loop(args):
                     break
 
             except KeyboardInterrupt:
+                print("\nRecording stopped by user.", flush=True)
                 proc.terminate()
                 try:
                     proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     proc.kill()
-                print("\nRecording stopped by user.", flush=True)
-                break
+                os._exit(0)
 
         page.close()
         if owns_browser:
