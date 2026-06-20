@@ -26,74 +26,122 @@ def login(args):
         browser.close()
 
 
-def capture_stream(context, url, monitor_time):
-    """Navigate to stream URL, capture m3u8 request, return (m3u8_url, cookie_string)."""
-    page = context.new_page()
-    captured_urls = []
+def make_output_path(template):
+    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if template:
+        base, ext = os.path.splitext(template)
+        return f"{base}_{ts}{ext}"
+    return f"live_recording_{ts}.ts"
 
-    def handle_request(request):
-        if ".m3u8" in request.url and "analytics" not in request.url:
-            print(f"[FOUND STREAM] {request.url}", flush=True)
-            captured_urls.append(request.url)
 
-    page.on("request", handle_request)
+def build_streamlink_cmd(m3u8_url, cookie_string, output):
+    return [
+        "streamlink",
+        f"hlsvariant://{m3u8_url}",
+        "best",
+        "--retry-open", "10",
+        "-o", output,
+        "--http-header", f"Cookie={cookie_string}",
+        "--http-header", "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ]
 
-    print(f"Navigating to {url}...", flush=True)
-    try:
-        page.goto(url, wait_until="load", timeout=60000)
-    except Exception as e:
-        print(f"[WARNING] Page load took a long time or timed out: {e}", file=sys.stderr, flush=True)
 
-    print(f"Monitoring background network traffic for up to {monitor_time} seconds...", flush=True)
-    for _ in range(monitor_time):
-        if captured_urls:
-            break
-        page.wait_for_timeout(1000)
-
-    if not captured_urls:
-        print("\n[ERROR] No m3u8 URL captured.", file=sys.stderr, flush=True)
-        page.close()
-        sys.exit(1)
-
-    final_m3u8 = captured_urls[-1]
+def get_cookie_string(context):
     cookies = context.cookies()
-    cookie_string = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-    page.close()
-
-    return final_m3u8, cookie_string
+    return "; ".join([f"{c['name']}={c['value']}" for c in cookies])
 
 
-def record_with_cdp(args):
-    """Record using an existing browser via CDP."""
+def record_loop(args):
     with sync_playwright() as p:
-        print(f"Connecting to your running Brave instance on {args.cdp_url}...", flush=True)
-        try:
-            browser = p.chromium.connect_over_cdp(args.cdp_url)
-        except Exception as e:
-            print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?", file=sys.stderr, flush=True)
-            print(f"Details: {e}", file=sys.stderr, flush=True)
-            sys.exit(1)
-
-        context = browser.contexts[0]
-        return capture_stream(context, args.url, args.monitor_time)
-
-
-def record_with_storage(args):
-    """Record using a headless browser with saved authentication state."""
-    with sync_playwright() as p:
-        print("Starting headless browser with saved authentication state...", flush=True)
-        try:
+        if os.path.exists(args.storage_state):
+            print(f"Using saved authentication state from {args.storage_state}", flush=True)
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(storage_state=args.storage_state)
-        except Exception as e:
-            print(f"\n[ERROR] Could not load storage state from {args.storage_state}", file=sys.stderr, flush=True)
-            print("Run with --login to re-authenticate.", file=sys.stderr, flush=True)
-            print(f"Details: {e}", file=sys.stderr, flush=True)
-            sys.exit(1)
+            owns_browser = True
+        else:
+            print(f"No saved authentication state found at {args.storage_state}", flush=True)
+            print(f"Connecting to your running Brave instance on {args.cdp_url}...", flush=True)
+            browser = p.chromium.connect_over_cdp(args.cdp_url)
+            context = browser.contexts[0]
+            owns_browser = False
 
+        page = context.new_page()
+        current_m3u8 = None
+        latest_m3u8 = None
+
+        def handle_request(request):
+            nonlocal latest_m3u8
+            if ".m3u8" in request.url and "analytics" not in request.url:
+                print(f"[FOUND STREAM] {request.url}", flush=True)
+                latest_m3u8 = request.url
+
+        page.on("request", handle_request)
+
+        print(f"Navigating to {args.url}...", flush=True)
         try:
-            return capture_stream(context, args.url, args.monitor_time)
-        finally:
+            page.goto(args.url, wait_until="load", timeout=60000)
+        except Exception as e:
+            print(f"[WARNING] Page load timed out: {e}", file=sys.stderr, flush=True)
+
+        print(f"Waiting for stream playlist (up to {args.monitor_time}s)...", flush=True)
+        for _ in range(args.monitor_time):
+            if latest_m3u8:
+                break
+            page.wait_for_timeout(1000)
+
+        if not latest_m3u8:
+            print("\n[ERROR] No m3u8 URL captured within timeout.", file=sys.stderr, flush=True)
+            return
+
+        current_m3u8 = latest_m3u8
+
+        while True:
+            cookie_string = get_cookie_string(context)
+            output = make_output_path(args.output)
+
+            print(f"\nStarting stream recording to {output}...", flush=True)
+            print("Press Ctrl+C to stop.", flush=True)
+
+            proc = subprocess.Popen(
+                build_streamlink_cmd(current_m3u8, cookie_string, output),
+                start_new_session=True,
+            )
+
+            try:
+                while proc.poll() is None:
+                    page.wait_for_timeout(500)
+
+                if proc.returncode != 0:
+                    print(f"\n[WARNING] Streamlink exited with code {proc.returncode}",
+                          file=sys.stderr, flush=True)
+
+                if latest_m3u8 and latest_m3u8 != current_m3u8:
+                    print(f"\n[NEXT] New stream detected, starting next recording...", flush=True)
+                    current_m3u8 = latest_m3u8
+                    continue
+
+                print(f"\n[WAITING] Stream ended, waiting up to 60s for next stream...", flush=True)
+                for _ in range(120):
+                    if latest_m3u8 and latest_m3u8 != current_m3u8:
+                        print(f"\n[NEXT] New stream detected, starting next recording...", flush=True)
+                        current_m3u8 = latest_m3u8
+                        break
+                    page.wait_for_timeout(500)
+                else:
+                    print("\nNo new stream detected for 60s, exiting.", flush=True)
+                    break
+
+            except KeyboardInterrupt:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                print("\nRecording stopped by user.", flush=True)
+                break
+
+        page.close()
+        if owns_browser:
             context.close()
             browser.close()
 
@@ -101,11 +149,15 @@ def record_with_storage(args):
 def run():
     parser = argparse.ArgumentParser(description="Fansly stream recorder")
     parser.add_argument("--url", help="Stream URL to record")
-    parser.add_argument("-o", "--output", help="Output file path (default: live_recording_<timestamp>.ts)")
-    parser.add_argument("--login", action="store_true", help="Interactive login to save authentication state")
-    parser.add_argument("--storage-state", default="fansly_auth.json", help="Path to saved auth state file (default: fansly_auth.json)")
-    parser.add_argument("--cdp-url", default="http://localhost:9222", help="CDP URL for existing browser (default: http://localhost:9222)")
-    parser.add_argument("--monitor-time", type=int, default=15, help="Seconds to wait for stream playlist (default: 15)")
+    parser.add_argument("-o", "--output", help="Output file path template")
+    parser.add_argument("--login", action="store_true",
+                        help="Interactive login to save authentication state")
+    parser.add_argument("--storage-state", default="fansly_auth.json",
+                        help="Path to saved auth state file (default: fansly_auth.json)")
+    parser.add_argument("--cdp-url", default="http://localhost:9222",
+                        help="CDP URL for existing browser (default: http://localhost:9222)")
+    parser.add_argument("--monitor-time", type=int, default=15,
+                        help="Seconds to wait for stream playlist (default: 15)")
     args = parser.parse_args()
 
     if args.login:
@@ -116,36 +168,7 @@ def run():
         print("Error: --url is required for recording mode", file=sys.stderr, flush=True)
         sys.exit(1)
 
-    output = args.output or f"live_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
-
-    if os.path.exists(args.storage_state):
-        print(f"Using saved authentication state from {args.storage_state}", flush=True)
-        final_m3u8, cookie_string = record_with_storage(args)
-    else:
-        print(f"No saved authentication state found at {args.storage_state}", flush=True)
-        final_m3u8, cookie_string = record_with_cdp(args)
-
-    print(f"\nHanding stream link and active login session over to Streamlink...", flush=True)
-    print(f"Recording to file: {output}", flush=True)
-    print("Press Ctrl+C inside this terminal window to stop recording.", flush=True)
-
-    streamlink_cmd = [
-        "streamlink",
-        f"hlsvariant://{final_m3u8}",
-        "best",
-        "-o", output,
-        "--http-header", f"Cookie={cookie_string}",
-        "--http-header", "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    ]
-
-    try:
-        result = subprocess.run(streamlink_cmd)
-    except KeyboardInterrupt:
-        print("\nRecording stopped by user. File saved.", flush=True)
-    else:
-        if result.returncode != 0:
-            print(f"\n[ERROR] Streamlink exited with code {result.returncode}", file=sys.stderr, flush=True)
-            sys.exit(result.returncode)
+    record_loop(args)
 
 
 if __name__ == "__main__":
