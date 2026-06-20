@@ -1,4 +1,5 @@
 import argparse
+import os.path
 import subprocess
 import time
 import sys
@@ -26,6 +27,75 @@ def login(args):
         browser.close()
 
 
+def capture_stream(context, url, monitor_time):
+    """Navigate to stream URL, capture m3u8 request, return (m3u8_url, cookie_string)."""
+    page = context.new_page()
+    captured_urls = []
+
+    def handle_request(request):
+        if ".m3u8" in request.url and "analytics" not in request.url:
+            print(f"[FOUND STREAM] {request.url}")
+            captured_urls.append(request.url)
+
+    page.on("request", handle_request)
+
+    print(f"Navigating to {url}...")
+    try:
+        page.goto(url, wait_until="load", timeout=60000)
+    except Exception as e:
+        print(f"[WARNING] Page load took a long time or timed out: {e}")
+
+    print(f"Monitoring background network traffic for {monitor_time} seconds...")
+    time.sleep(monitor_time)
+
+    if not captured_urls:
+        print("\n[ERROR] No m3u8 URL captured.")
+        page.close()
+        sys.exit(1)
+
+    final_m3u8 = captured_urls[-1]
+    cookies = context.cookies()
+    cookie_string = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
+    page.close()
+
+    return final_m3u8, cookie_string
+
+
+def record_with_cdp(args):
+    """Record using an existing browser via CDP."""
+    with sync_playwright() as p:
+        print(f"Connecting to your running Brave instance on {args.cdp_url}...")
+        try:
+            browser = p.chromium.connect_over_cdp(args.cdp_url)
+        except Exception as e:
+            print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?")
+            print(f"Details: {e}")
+            sys.exit(1)
+
+        context = browser.contexts[0]
+        return capture_stream(context, args.url, args.monitor_time)
+
+
+def record_with_storage(args):
+    """Record using a headless browser with saved authentication state."""
+    with sync_playwright() as p:
+        print("Starting headless browser with saved authentication state...")
+        try:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(storage_state=args.storage_state)
+        except Exception as e:
+            print(f"\n[ERROR] Could not load storage state from {args.storage_state}")
+            print("Run with --login to re-authenticate.")
+            print(f"Details: {e}")
+            sys.exit(1)
+
+        try:
+            return capture_stream(context, args.url, args.monitor_time)
+        finally:
+            context.close()
+            browser.close()
+
+
 def run():
     parser = argparse.ArgumentParser(description="Fansly stream recorder")
     parser.add_argument("--url", help="Stream URL to record")
@@ -46,48 +116,12 @@ def run():
 
     output = args.output or f"live_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
 
-    with sync_playwright() as p:
-        print(f"Connecting to your running Brave instance on {args.cdp_url}...")
-
-        try:
-            browser = p.chromium.connect_over_cdp(args.cdp_url)
-        except Exception as e:
-            print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?")
-            print(f"Details: {e}")
-            sys.exit(1)
-
-        context = browser.contexts[0]
-        page = context.new_page()
-
-        captured_urls = []
-
-        def handle_request(request):
-            url = request.url
-            if ".m3u8" in url and "analytics" not in url:
-                print(f"[FOUND STREAM] {url}")
-                captured_urls.append(url)
-
-        page.on("request", handle_request)
-
-        print(f"Navigating to {args.url}...")
-        try:
-            page.goto(args.url, wait_until="load", timeout=60000)
-        except Exception as e:
-            print(f"[WARNING] Page load took a long time or timed out: {e}")
-
-        print(f"Monitoring background network traffic for {args.monitor_time} seconds...")
-        time.sleep(args.monitor_time)
-
-        if not captured_urls:
-            print("\n[ERROR] No m3u8 URL captured.")
-            print("Check your Brave window—did the stream fail to auto-play, or did a popup block it?")
-            page.close()
-            return
-
-        final_m3u8 = captured_urls[-1]
-        cookies = context.cookies()
-        cookie_string = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-        page.close()
+    if os.path.exists(args.storage_state):
+        print(f"Using saved authentication state from {args.storage_state}")
+        final_m3u8, cookie_string = record_with_storage(args)
+    else:
+        print(f"No saved authentication state found at {args.storage_state}")
+        final_m3u8, cookie_string = record_with_cdp(args)
 
     print(f"\nHanding stream link and active login session over to Streamlink...")
     print(f"Recording to file: {output}")
