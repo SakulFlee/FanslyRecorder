@@ -8,9 +8,9 @@ from playwright.sync_api import sync_playwright
 
 
 def login(args):
-    print("Opening browser for Fansly login...")
-    print("Please log in to Fansly in the browser window that opens.")
-    print("After logging in, press Enter here to save the session.")
+    print("Opening browser for Fansly login...", flush=True)
+    print("Please log in to Fansly in the browser window that opens.", flush=True)
+    print("After logging in, press Enter here to save the session.", flush=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -21,7 +21,7 @@ def login(args):
         input("Press Enter after you have logged in...")
 
         context.storage_state(path=args.storage_state)
-        print(f"Authentication state saved to {args.storage_state}")
+        print(f"Authentication state saved to {args.storage_state}", flush=True)
 
         page.close()
         browser.close()
@@ -34,22 +34,22 @@ def capture_stream(context, url, monitor_time):
 
     def handle_request(request):
         if ".m3u8" in request.url and "analytics" not in request.url:
-            print(f"[FOUND STREAM] {request.url}")
+            print(f"[FOUND STREAM] {request.url}", flush=True)
             captured_urls.append(request.url)
 
     page.on("request", handle_request)
 
-    print(f"Navigating to {url}...")
+    print(f"Navigating to {url}...", flush=True)
     try:
         page.goto(url, wait_until="load", timeout=60000)
     except Exception as e:
-        print(f"[WARNING] Page load took a long time or timed out: {e}")
+        print(f"[WARNING] Page load took a long time or timed out: {e}", file=sys.stderr, flush=True)
 
-    print(f"Monitoring background network traffic for {monitor_time} seconds...")
+    print(f"Monitoring background network traffic for {monitor_time} seconds...", flush=True)
     time.sleep(monitor_time)
 
     if not captured_urls:
-        print("\n[ERROR] No m3u8 URL captured.")
+        print("\n[ERROR] No m3u8 URL captured.", file=sys.stderr, flush=True)
         page.close()
         sys.exit(1)
 
@@ -64,12 +64,12 @@ def capture_stream(context, url, monitor_time):
 def record_with_cdp(args):
     """Record using an existing browser via CDP."""
     with sync_playwright() as p:
-        print(f"Connecting to your running Brave instance on {args.cdp_url}...")
+        print(f"Connecting to your running Brave instance on {args.cdp_url}...", flush=True)
         try:
             browser = p.chromium.connect_over_cdp(args.cdp_url)
         except Exception as e:
-            print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?")
-            print(f"Details: {e}")
+            print(f"\n[ERROR] Could not connect to Brave. Is it running with --remote-debugging-port=9222?", file=sys.stderr, flush=True)
+            print(f"Details: {e}", file=sys.stderr, flush=True)
             sys.exit(1)
 
         context = browser.contexts[0]
@@ -79,14 +79,14 @@ def record_with_cdp(args):
 def record_with_storage(args):
     """Record using a headless browser with saved authentication state."""
     with sync_playwright() as p:
-        print("Starting headless browser with saved authentication state...")
+        print("Starting headless browser with saved authentication state...", flush=True)
         try:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(storage_state=args.storage_state)
         except Exception as e:
-            print(f"\n[ERROR] Could not load storage state from {args.storage_state}")
-            print("Run with --login to re-authenticate.")
-            print(f"Details: {e}")
+            print(f"\n[ERROR] Could not load storage state from {args.storage_state}", file=sys.stderr, flush=True)
+            print("Run with --login to re-authenticate.", file=sys.stderr, flush=True)
+            print(f"Details: {e}", file=sys.stderr, flush=True)
             sys.exit(1)
 
         try:
@@ -111,21 +111,21 @@ def run():
         return
 
     if not args.url:
-        print("Error: --url is required for recording mode")
+        print("Error: --url is required for recording mode", file=sys.stderr, flush=True)
         sys.exit(1)
 
     output = args.output or f"live_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
 
     if os.path.exists(args.storage_state):
-        print(f"Using saved authentication state from {args.storage_state}")
+        print(f"Using saved authentication state from {args.storage_state}", flush=True)
         final_m3u8, cookie_string = record_with_storage(args)
     else:
-        print(f"No saved authentication state found at {args.storage_state}")
+        print(f"No saved authentication state found at {args.storage_state}", flush=True)
         final_m3u8, cookie_string = record_with_cdp(args)
 
-    print(f"\nHanding stream link and active login session over to Streamlink...")
-    print(f"Recording to file: {output}")
-    print("Press Ctrl+C inside this terminal window to stop recording.")
+    print(f"\nHanding stream link and active login session over to Streamlink...", flush=True)
+    print(f"Recording to file: {output}", flush=True)
+    print("Press Ctrl+C inside this terminal window to stop recording.", flush=True)
 
     streamlink_cmd = [
         "streamlink",
@@ -137,9 +137,13 @@ def run():
     ]
 
     try:
-        subprocess.run(streamlink_cmd)
+        result = subprocess.run(streamlink_cmd)
     except KeyboardInterrupt:
-        print("\nRecording stopped by user. File saved.")
+        print("\nRecording stopped by user. File saved.", flush=True)
+    else:
+        if result.returncode != 0:
+            print(f"\n[ERROR] Streamlink exited with code {result.returncode}", file=sys.stderr, flush=True)
+            sys.exit(result.returncode)
 
 
 if __name__ == "__main__":
