@@ -1,3 +1,9 @@
 # DirEnv
 .direnv/
 
+# Authentication state
+fansly_auth.json
+
+# Recorded output
+*.ts
+
