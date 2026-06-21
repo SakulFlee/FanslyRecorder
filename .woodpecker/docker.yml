@@ -6,9 +6,8 @@ steps:
   build-and-push:
     image: nixos/nix:latest
     commands:
-      - apk add --no-cache skopeo
       - nix build .#dockerImage --accept-flake-config --extra-experimental-features 'nix-command flakes'
-      - skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-creds="$FORGEJO_USERNAME:$FORGEJO_PASSWORD"
+      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-creds="$FORGEJO_USERNAME:$FORGEJO_PASSWORD"
     environment:
       FORGEJO_USERNAME:
         from_secret: FORGEJO_USERNAME
