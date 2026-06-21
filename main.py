@@ -40,7 +40,7 @@ def build_streamlink_cmd(m3u8_url, cookie_string, output):
         "streamlink",
         f"hlsvariant://{m3u8_url}",
         "best",
-        "--retry-open", "10",
+        "--retry-open", "30",
         "-o", output,
         "--http-header", f"Cookie={cookie_string}",
         "--http-header", "User-Agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -131,16 +131,41 @@ def record_loop(args):
                 if restart:
                     continue
 
+                print(f"\n[STREAMLINK] Exited with code {proc.returncode}", flush=True)
+
                 m3u8_stale_timeout = 30
-                if time.time() - last_m3u8_time <= m3u8_stale_timeout:
-                    print(f"\n[RETRY] Streamlink exited (code {proc.returncode}), "
-                          f"but stream still active. Restarting...", flush=True)
+                secs_since_m3u8 = time.time() - last_m3u8_time
+                if secs_since_m3u8 <= m3u8_stale_timeout:
+                    print(f"[RETRY] Stream still active (last m3u8 {secs_since_m3u8:.0f}s ago), "
+                          f"restarting in 2s...", flush=True)
                     if latest_m3u8 and latest_m3u8 != current_m3u8:
                         current_m3u8 = latest_m3u8
                     page.wait_for_timeout(2000)
                     continue
 
-                print(f"\n[WAITING] Stream appears ended, waiting up to 60s for next stream...", flush=True)
+                print(f"[RENAV] No m3u8 requests for {secs_since_m3u8:.0f}s, "
+                      f"reloading page to get fresh token...", flush=True)
+                latest_m3u8 = None
+                try:
+                    page.goto(args.url, wait_until="load", timeout=30000)
+                except Exception as e:
+                    print(f"[WARNING] Page reload timed out: {e}", file=sys.stderr, flush=True)
+
+                print(f"[RENAV] Page navigated, waiting up to {args.monitor_time}s for new playlist...", flush=True)
+                for _ in range(args.monitor_time):
+                    if latest_m3u8:
+                        break
+                    page.wait_for_timeout(1000)
+
+                if latest_m3u8:
+                    print(f"[RENAV] New playlist captured: {latest_m3u8}", flush=True)
+                    current_m3u8 = latest_m3u8
+                    last_m3u8_time = time.time()
+                    page.wait_for_timeout(2000)
+                    continue
+
+                print(f"\n[WAITING] No playlist found after reload, "
+                      f"waiting up to 60s for next stream...", flush=True)
                 for _ in range(120):
                     if time.time() - last_m3u8_time <= m3u8_stale_timeout:
                         print(f"\n[NEXT] Stream activity detected, restarting...", flush=True)
