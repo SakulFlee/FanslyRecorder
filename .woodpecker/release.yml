@@ -4,14 +4,14 @@ when:
 
 steps:
   release:
-    image: python:3.13-alpine
+    image: python:3.13-slim
     environment:
       FORGEJO_USERNAME:
         from_secret: FORGEJO_USERNAME
       FORGEJO_PASSWORD:
         from_secret: FORGEJO_PASSWORD
     commands:
-      - apk add --no-cache curl jq binutils
+      - apt-get update && apt-get install -y curl jq binutils
       - pip install pyinstaller playwright
       - pyinstaller --onefile --name fansly-recorder main.py
       - |
