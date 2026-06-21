@@ -6,15 +6,40 @@ on:
   workflow_dispatch:
 
 jobs:
-  binary:
+  create-release:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release create "${{ github.ref_name }}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: create-release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            suffix: linux
+          - os: windows-latest
+            suffix: windows.exe
+          - os: macos-latest
+            suffix: macos
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - run: pip install pyinstaller playwright
+      - run: python -m playwright install chromium
       - run: pyinstaller --onefile --name fansly-recorder main.py
-      - run: gh release create "${{ github.ref_name }}" dist/fansly-recorder --generate-notes
+      - run: |
+          asset="dist/fansly-recorder${{ runner.os == 'Windows' && '.exe' || '' }}"
+          mv "$asset" "dist/fansly-recorder-${{ matrix.suffix }}"
+          gh release upload "${{ github.ref_name }}" \
+            "dist/fansly-recorder-${{ matrix.suffix }}" --clobber
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
