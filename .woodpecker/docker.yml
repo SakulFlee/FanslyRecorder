@@ -6,7 +6,7 @@ steps:
   build-and-push:
     image: nixos/nix:latest
     commands:
-      - nix build .#dockerImage --accept-flake-config
+      - nix build .#dockerImage --accept-flake-config --extra-experimental-features 'nix-command flakes'
       - docker load < result
       - docker tag fansly-recorder forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest}
       - echo "$FORGEJO_PASSWORD" | docker login forgejo.sakul-flee.de -u "$FORGEJO_USERNAME" --password-stdin
