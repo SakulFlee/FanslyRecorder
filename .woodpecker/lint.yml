@@ -1,0 +1,10 @@
+when:
+  event: [push, pull_request]
+  branch: main
+
+steps:
+  lint:
+    image: python:3.13-alpine
+    commands:
+      - pip install ruff
+      - ruff check main.py

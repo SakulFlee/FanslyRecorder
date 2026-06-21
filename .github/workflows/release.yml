@@ -15,6 +15,6 @@ jobs:
           python-version: "3.13"
       - run: pip install pyinstaller playwright
       - run: pyinstaller --onefile --name fansly-recorder main.py
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/fansly-recorder
+      - run: gh release create "${{ github.ref_name }}" dist/fansly-recorder --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,5 @@
 when:
-  event: [push, tag, manual]
+  event: [tag, manual]
   branch: main
 
 steps:
