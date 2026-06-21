@@ -5,7 +5,10 @@ when:
 steps:
   build-and-push:
     image: nixos/nix:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
+      - apk add --no-cache docker-cli
       - nix build .#dockerImage --accept-flake-config --extra-experimental-features 'nix-command flakes'
       - docker load < result
       - docker tag fansly-recorder forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest}
