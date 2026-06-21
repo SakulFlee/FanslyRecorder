@@ -2,13 +2,6 @@
 
 Record Fansly live streams by intercepting m3u8 playlist URLs via Playwright and piping them through streamlink.
 
-## Requirements
-
-- **Python 3.13+** with `playwright` and `streamlink`
-- **ffmpeg** (used by streamlink for transcoding)
-- **Playwright Chromium browser** (`playwright install chromium`)
-- **Nix** (optional — for dev shell and Docker image builds)
-
 ## Quick Start
 
 ### 1. Authenticate
@@ -40,11 +33,13 @@ The output filename defaults to `{streamer}_{timestamp}.ts`. Adding `-o output.t
 | `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file exists) |
 | `--monitor-time` | `15` | Seconds to wait for stream playlist on page load |
 
-## Nix
+## Packages
+
+### Nix
 
 A `flake.nix` is provided for reproducible development and deployment.
 
-### Dev shell
+#### Dev shell
 
 ```sh
 nix develop
@@ -52,13 +47,13 @@ nix develop
 
 Provides Python 3.14, Playwright, streamlink, ffmpeg, and the Chromium browser with `PLAYWRIGHT_BROWSERS_PATH` preconfigured.
 
-### Run directly
+#### Run directly
 
 ```sh
 nix run . -- --url https://fansly.com/.../stream -o output.ts
 ```
 
-### Build Docker image
+#### Build Docker image
 
 ```sh
 nix build .#dockerImage
@@ -66,7 +61,7 @@ docker load < result
 docker run fansly-recorder --help
 ```
 
-## Binary Releases
+### Binary Releases
 
 Pre-built binaries are attached to [GitHub Releases](https://github.com/SakulFlee/FanslyRecorder/releases) and [Forgejo Releases](https://forgejo.sakul-flee.de/sakulflee/fansly-recorder/releases).
 
@@ -83,7 +78,7 @@ Pre-built binaries are attached to [GitHub Releases](https://github.com/SakulFle
 >
 > Set `PLAYWRIGHT_BROWSERS_PATH` to point elsewhere if needed.
 
-## Docker
+### Docker
 
 Images are published to:
 
