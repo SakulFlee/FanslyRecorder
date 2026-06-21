@@ -19,18 +19,19 @@
         withWebkit = false;
       };
 
+      pythonWithPlaywright = pkgs.python314.withPackages (ps: [ ps.playwright ]);
+
       app = pkgs.writeShellApplication {
         name = "fansly-recorder";
         runtimeInputs = with pkgs; [
-          python314
-          python314Packages.playwright
+          pythonWithPlaywright
           playwrightBrowsers
           streamlink
           ffmpeg
         ];
         text = ''
           export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-          exec "${pkgs.python314}/bin/python" "${./main.py}" "$@"
+          exec "${pythonWithPlaywright}/bin/python" "${./main.py}" "$@"
         '';
       };
     in
