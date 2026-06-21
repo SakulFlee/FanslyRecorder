@@ -117,7 +117,7 @@ def record_loop(args):
 
                 while proc.poll() is None:
                     if latest_m3u8 and latest_m3u8 != current_m3u8:
-                        print(f"\n[NEXT] Stream URL refreshed, re-launching...", flush=True)
+                        print("\n[NEXT] Stream URL refreshed, re-launching...", flush=True)
                         proc.terminate()
                         try:
                             proc.wait(timeout=5)
@@ -164,11 +164,11 @@ def record_loop(args):
                     page.wait_for_timeout(2000)
                     continue
 
-                print(f"\n[WAITING] No playlist found after reload, "
-                      f"waiting up to 60s for next stream...", flush=True)
+                print("\n[WAITING] No playlist found after reload, "
+                      "waiting up to 60s for next stream...", flush=True)
                 for _ in range(120):
                     if time.time() - last_m3u8_time <= m3u8_stale_timeout:
-                        print(f"\n[NEXT] Stream activity detected, restarting...", flush=True)
+                        print("\n[NEXT] Stream activity detected, restarting...", flush=True)
                         if latest_m3u8 and latest_m3u8 != current_m3u8:
                             current_m3u8 = latest_m3u8
                         break
