@@ -5,15 +5,10 @@ when:
 steps:
   build-and-push:
     image: nixos/nix:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - apk add --no-cache docker-cli
+      - apk add --no-cache skopeo
       - nix build .#dockerImage --accept-flake-config --extra-experimental-features 'nix-command flakes'
-      - docker load < result
-      - docker tag fansly-recorder forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest}
-      - echo "$FORGEJO_PASSWORD" | docker login forgejo.sakul-flee.de -u "$FORGEJO_USERNAME" --password-stdin
-      - docker push forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest}
+      - skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-creds="$FORGEJO_USERNAME:$FORGEJO_PASSWORD"
     environment:
       FORGEJO_USERNAME:
         from_secret: FORGEJO_USERNAME
