@@ -12,7 +12,7 @@ Opens a browser window for you to log in to Fansly:
 fansly-recorder --login
 ```
 
-Saves the session to `fansly_auth.json` (Playwright storage state). All subsequent runs use this file headless.
+Saves the session to `~/.config/fansly-recorder/auth.json`. All subsequent runs use this file headless.
 
 ### 2. Record a stream
 
@@ -29,8 +29,8 @@ The output filename defaults to `{streamer}_{timestamp}.ts`. Adding `-o output.t
 | `--url` | — | Stream page URL to record |
 | `-o` / `--output` | auto | Output file path template |
 | `--login` | — | Interactive login to save auth state |
-| `--storage-state` | `fansly_auth.json` | Path to saved auth state file |
-| `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file exists) |
+| `--storage-state` | `~/.config/fansly-recorder/auth.json` | Path to saved auth state file |
+| `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file) |
 | `--monitor-time` | `15` | Seconds to wait for stream playlist on page load |
 
 ## Packages
@@ -105,7 +105,7 @@ docker run --rm -v "$PWD:/data" ghcr.io/sakulflee/fansly-recorder \
 
 5. **Graceful Exit**: When streamlink exits and no new m3u8 is seen for 60 seconds, the script exits. Pressing Ctrl+C calls `os._exit(0)` (Playwright cleanup hangs on interrupt).
 
-6. **CDP Fallback**: If no storage state file exists, the script connects to an existing Brave/Chrome instance via `--cdp-url` (default `http://localhost:9222`).
+6. **Interactive Prompt**: If no auth file exists and running in a terminal, you're prompted to login, use CDP, or quit. Non-TTY (e.g., Docker) falls back to CDP automatically.
 
 ## CI/CD
 

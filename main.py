@@ -6,11 +6,15 @@ import time
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
+DEFAULT_STORAGE = os.path.expanduser("~/.config/fansly-recorder/auth.json")
+
 
 def login(args):
     print("Opening browser for Fansly login...", flush=True)
     print("Please log in to Fansly in the browser window that opens.", flush=True)
     print("After logging in, press Enter here to save the session.", flush=True)
+
+    os.makedirs(os.path.dirname(args.storage_state) or ".", exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -54,14 +58,28 @@ def get_cookie_string(context):
 
 def record_loop(args):
     with sync_playwright() as p:
-        if os.path.exists(args.storage_state):
-            print(f"Using saved authentication state from {args.storage_state}", flush=True)
+        storage_path = args.storage_state
+        if not os.path.exists(storage_path) and sys.stdin.isatty():
+            print(f"No saved authentication state found at {storage_path}.")
+            print(f"  [L] Login now (saves to {storage_path})")
+            print(f"  [C] Connect via CDP ({args.cdp_url})")
+            print(f"  [Q] Quit")
+            choice = input("Choose [L/c/q]: ").strip().lower()
+            if choice in ("", "l"):
+                login(args)
+            elif choice == "c":
+                pass
+            else:
+                sys.exit(0)
+
+        if os.path.exists(storage_path):
+            print(f"Using saved authentication state from {storage_path}", flush=True)
             browser = p.chromium.launch(headless=True)
-            context = browser.new_context(storage_state=args.storage_state)
+            context = browser.new_context(storage_state=storage_path)
             owns_browser = True
         else:
-            print(f"No saved authentication state found at {args.storage_state}", flush=True)
-            print(f"Connecting to your running Brave instance on {args.cdp_url}...", flush=True)
+            print(f"No saved authentication state found at {storage_path}", flush=True)
+            print(f"Connecting to your running browser on {args.cdp_url}...", flush=True)
             browser = p.chromium.connect_over_cdp(args.cdp_url)
             context = browser.contexts[0]
             owns_browser = False
@@ -198,8 +216,8 @@ def run():
     parser.add_argument("-o", "--output", help="Output file path template")
     parser.add_argument("--login", action="store_true",
                         help="Interactive login to save authentication state")
-    parser.add_argument("--storage-state", default="fansly_auth.json",
-                        help="Path to saved auth state file (default: fansly_auth.json)")
+    parser.add_argument("--storage-state", default=DEFAULT_STORAGE,
+                        help=f"Path to saved auth state file (default: {DEFAULT_STORAGE})")
     parser.add_argument("--cdp-url", default="http://localhost:9222",
                         help="CDP URL for existing browser (default: http://localhost:9222)")
     parser.add_argument("--monitor-time", type=int, default=15,
