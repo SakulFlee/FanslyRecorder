@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
@@ -69,12 +70,14 @@ def record_loop(args):
         page = context.new_page()
         current_m3u8 = None
         latest_m3u8 = None
+        last_m3u8_time = 0.0
 
         def handle_request(request):
-            nonlocal latest_m3u8
+            nonlocal latest_m3u8, last_m3u8_time
             if ".m3u8" in request.url and "analytics" not in request.url:
                 print(f"[FOUND STREAM] {request.url}", flush=True)
                 latest_m3u8 = request.url
+                last_m3u8_time = time.time()
 
         page.on("request", handle_request)
 
@@ -95,6 +98,7 @@ def record_loop(args):
             return
 
         current_m3u8 = latest_m3u8
+        last_m3u8_time = time.time()
 
         while True:
             cookie_string = get_cookie_string(context)
@@ -127,24 +131,25 @@ def record_loop(args):
                 if restart:
                     continue
 
-                if proc.returncode != 0:
-                    print(f"\n[WARNING] Streamlink exited with code {proc.returncode}",
-                          file=sys.stderr, flush=True)
-
-                if latest_m3u8 and latest_m3u8 != current_m3u8:
-                    print(f"\n[NEXT] New stream detected, starting next recording...", flush=True)
-                    current_m3u8 = latest_m3u8
+                m3u8_stale_timeout = 30
+                if time.time() - last_m3u8_time <= m3u8_stale_timeout:
+                    print(f"\n[RETRY] Streamlink exited (code {proc.returncode}), "
+                          f"but stream still active. Restarting...", flush=True)
+                    if latest_m3u8 and latest_m3u8 != current_m3u8:
+                        current_m3u8 = latest_m3u8
+                    page.wait_for_timeout(2000)
                     continue
 
-                print(f"\n[WAITING] Stream ended, waiting up to 60s for next stream...", flush=True)
+                print(f"\n[WAITING] Stream appears ended, waiting up to 60s for next stream...", flush=True)
                 for _ in range(120):
-                    if latest_m3u8 and latest_m3u8 != current_m3u8:
-                        print(f"\n[NEXT] New stream detected, starting next recording...", flush=True)
-                        current_m3u8 = latest_m3u8
+                    if time.time() - last_m3u8_time <= m3u8_stale_timeout:
+                        print(f"\n[NEXT] Stream activity detected, restarting...", flush=True)
+                        if latest_m3u8 and latest_m3u8 != current_m3u8:
+                            current_m3u8 = latest_m3u8
                         break
                     page.wait_for_timeout(500)
                 else:
-                    print("\nNo new stream detected for 60s, exiting.", flush=True)
+                    print("\nNo stream activity detected for 60s, exiting.", flush=True)
                     break
 
             except KeyboardInterrupt:
