@@ -57,21 +57,22 @@ def get_cookie_string(context):
 
 
 def record_loop(args):
-    with sync_playwright() as p:
-        storage_path = args.storage_state
-        if not os.path.exists(storage_path) and sys.stdin.isatty():
-            print(f"No saved authentication state found at {storage_path}.")
-            print(f"  [L] Login now (saves to {storage_path})")
-            print(f"  [C] Connect via CDP ({args.cdp_url})")
-            print(f"  [Q] Quit")
-            choice = input("Choose [L/c/q]: ").strip().lower()
-            if choice in ("", "l"):
-                login(args)
-            elif choice == "c":
-                pass
-            else:
-                sys.exit(0)
+    storage_path = args.storage_state
 
+    if not os.path.exists(storage_path) and sys.stdin.isatty():
+        print(f"No saved authentication state found at {storage_path}.")
+        print(f"  [L] Login now (saves to {storage_path})")
+        print(f"  [C] Connect via CDP ({args.cdp_url})")
+        print(f"  [Q] Quit")
+        choice = input("Choose [L/c/q]: ").strip().lower()
+        if choice in ("", "l"):
+            login(args)
+        elif choice == "c":
+            pass
+        else:
+            sys.exit(0)
+
+    with sync_playwright() as p:
         if os.path.exists(storage_path):
             print(f"Using saved authentication state from {storage_path}", flush=True)
             browser = p.chromium.launch(headless=True)
