@@ -22,6 +22,14 @@ fansly-recorder --url https://fansly.com/.../stream -o output.ts
 
 The output filename defaults to `{streamer}_{timestamp}.ts`. Adding `-o output.ts` appends the timestamp before the extension (`output_20250101_120000.ts`).
 
+### 3. Watch mode (poll for stream)
+
+```sh
+fansly-recorder --url https://fansly.com/.../stream --watch
+```
+
+Keeps the browser open and polls for a stream every 300 seconds (configurable with `--interval`). The page is assumed to auto-refresh when the streamer goes live. Once a stream ends, it returns to polling automatically.
+
 ## CLI Options
 
 | Flag | Default | Description |
@@ -32,6 +40,8 @@ The output filename defaults to `{streamer}_{timestamp}.ts`. Adding `-o output.t
 | `--storage-state` | `~/.config/fansly-recorder/auth.json` | Path to saved auth state file |
 | `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file) |
 | `--monitor-time` | `15` | Seconds to wait for stream playlist on page load |
+| `--watch` | — | Stay running, check for stream every N seconds |
+| `--interval` | `300` | Check interval in seconds (only used with `--watch`) |
 
 ## Packages
 
@@ -103,9 +113,11 @@ docker run --rm -v "$PWD:/data" ghcr.io/sakulflee/fansly-recorder \
 
 4. **Stream Transitions**: The browser stays alive. If a new m3u8 URL appears (token refresh / stream restart), the old streamlink process is killed and a new one launched with the updated URL.
 
-5. **Graceful Exit**: When streamlink exits and no new m3u8 is seen for 60 seconds, the script exits. Pressing Ctrl+C calls `os._exit(0)` (Playwright cleanup hangs on interrupt).
+5. **Graceful Exit**: When streamlink exits and no new m3u8 is seen for 60 seconds, the script exits (or returns to polling if `--watch` is set). Pressing Ctrl+C calls `os._exit(0)` (Playwright cleanup hangs on interrupt).
 
-6. **Interactive Prompt**: If no auth file exists and running in a terminal, you're prompted to login, use CDP, or quit. Non-TTY (e.g., Docker) falls back to CDP automatically.
+6. **Watch Mode**: With `--watch`, the detection and recording phases are wrapped in a retry loop. If no stream is found (or a previous recording ends), the script sleeps for `--interval` seconds and checks again. The browser stays open and the request handler stays registered throughout.
+
+7. **Interactive Prompt**: If no auth file exists and running in a terminal, you're prompted to login, use CDP, or quit. Non-TTY (e.g., Docker) falls back to CDP automatically.
 
 ## CI/CD
 
