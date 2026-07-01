@@ -106,104 +106,126 @@ def record_loop(args):
         except Exception as e:
             print(f"[WARNING] Page load timed out: {e}", file=sys.stderr, flush=True)
 
-        print(f"Waiting for stream playlist (up to {args.monitor_time}s)...", flush=True)
-        for _ in range(args.monitor_time):
-            if latest_m3u8:
-                break
-            page.wait_for_timeout(1000)
-
-        if not latest_m3u8:
-            print("\n[ERROR] No m3u8 URL captured within timeout.", file=sys.stderr, flush=True)
-            return
-
-        current_m3u8 = latest_m3u8
-        last_m3u8_time = time.time()
-
         while True:
-            cookie_string = get_cookie_string(context)
-            output = make_output_path(args.output, streamer)
+            latest_m3u8 = None
+            last_m3u8_time = 0.0
 
-            print(f"\nStarting stream recording to {output}...", flush=True)
-            print("Press Ctrl+C to stop.", flush=True)
-
-            proc = subprocess.Popen(
-                build_streamlink_cmd(current_m3u8, cookie_string, output),
-                start_new_session=True,
-            )
-
-            try:
-                restart = False
-
-                while proc.poll() is None:
-                    if latest_m3u8 and latest_m3u8 != current_m3u8:
-                        print("\n[NEXT] Stream URL refreshed, re-launching...", flush=True)
-                        proc.terminate()
-                        try:
-                            proc.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            proc.kill()
-                        current_m3u8 = latest_m3u8
-                        restart = True
-                        break
-                    page.wait_for_timeout(500)
-
-                if restart:
-                    continue
-
-                print(f"\n[STREAMLINK] Exited with code {proc.returncode}", flush=True)
-
-                m3u8_stale_timeout = 30
-                secs_since_m3u8 = time.time() - last_m3u8_time
-                if secs_since_m3u8 <= m3u8_stale_timeout:
-                    print(f"[RETRY] Stream still active (last m3u8 {secs_since_m3u8:.0f}s ago), "
-                          f"restarting in 2s...", flush=True)
-                    if latest_m3u8 and latest_m3u8 != current_m3u8:
-                        current_m3u8 = latest_m3u8
-                    page.wait_for_timeout(2000)
-                    continue
-
-                print(f"[RENAV] No m3u8 requests for {secs_since_m3u8:.0f}s, "
-                      f"reloading page to get fresh token...", flush=True)
-                latest_m3u8 = None
-                try:
-                    page.goto(args.url, wait_until="load", timeout=30000)
-                except Exception as e:
-                    print(f"[WARNING] Page reload timed out: {e}", file=sys.stderr, flush=True)
-
-                print(f"[RENAV] Page navigated, waiting up to {args.monitor_time}s for new playlist...", flush=True)
-                for _ in range(args.monitor_time):
-                    if latest_m3u8:
-                        break
-                    page.wait_for_timeout(1000)
-
+            print(f"Waiting for stream playlist (up to {args.monitor_time}s)...", flush=True)
+            for _ in range(args.monitor_time):
                 if latest_m3u8:
-                    print(f"[RENAV] New playlist captured: {latest_m3u8}", flush=True)
-                    current_m3u8 = latest_m3u8
-                    last_m3u8_time = time.time()
-                    page.wait_for_timeout(2000)
-                    continue
+                    break
+                page.wait_for_timeout(1000)
 
-                print("\n[WAITING] No playlist found after reload, "
-                      "waiting up to 60s for next stream...", flush=True)
-                for _ in range(120):
-                    if time.time() - last_m3u8_time <= m3u8_stale_timeout:
-                        print("\n[NEXT] Stream activity detected, restarting...", flush=True)
+            if not latest_m3u8:
+                if not args.watch:
+                    print("\n[ERROR] No m3u8 URL captured within timeout.", file=sys.stderr, flush=True)
+                    break
+                print(f"\nNo stream detected. Checking again in {args.interval}s...", flush=True)
+                try:
+                    time.sleep(args.interval)
+                except KeyboardInterrupt:
+                    print("\nWatch mode stopped by user.", flush=True)
+                    break
+                continue
+
+            current_m3u8 = latest_m3u8
+            last_m3u8_time = time.time()
+
+            while True:
+                cookie_string = get_cookie_string(context)
+                output = make_output_path(args.output, streamer)
+
+                print(f"\nStarting stream recording to {output}...", flush=True)
+                print("Press Ctrl+C to stop.", flush=True)
+
+                proc = subprocess.Popen(
+                    build_streamlink_cmd(current_m3u8, cookie_string, output),
+                    start_new_session=True,
+                )
+
+                try:
+                    restart = False
+
+                    while proc.poll() is None:
+                        if latest_m3u8 and latest_m3u8 != current_m3u8:
+                            print("\n[NEXT] Stream URL refreshed, re-launching...", flush=True)
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                proc.kill()
+                            current_m3u8 = latest_m3u8
+                            restart = True
+                            break
+                        page.wait_for_timeout(500)
+
+                    if restart:
+                        continue
+
+                    print(f"\n[STREAMLINK] Exited with code {proc.returncode}", flush=True)
+
+                    m3u8_stale_timeout = 30
+                    secs_since_m3u8 = time.time() - last_m3u8_time
+                    if secs_since_m3u8 <= m3u8_stale_timeout:
+                        print(f"[RETRY] Stream still active (last m3u8 {secs_since_m3u8:.0f}s ago), "
+                              f"restarting in 2s...", flush=True)
                         if latest_m3u8 and latest_m3u8 != current_m3u8:
                             current_m3u8 = latest_m3u8
-                        break
-                    page.wait_for_timeout(500)
-                else:
-                    print("\nNo stream activity detected for 60s, exiting.", flush=True)
-                    break
+                        page.wait_for_timeout(2000)
+                        continue
 
+                    print(f"[RENAV] No m3u8 requests for {secs_since_m3u8:.0f}s, "
+                          f"reloading page to get fresh token...", flush=True)
+                    latest_m3u8 = None
+                    try:
+                        page.goto(args.url, wait_until="load", timeout=30000)
+                    except Exception as e:
+                        print(f"[WARNING] Page reload timed out: {e}", file=sys.stderr, flush=True)
+
+                    print(f"[RENAV] Page navigated, waiting up to {args.monitor_time}s for new playlist...", flush=True)
+                    for _ in range(args.monitor_time):
+                        if latest_m3u8:
+                            break
+                        page.wait_for_timeout(1000)
+
+                    if latest_m3u8:
+                        print(f"[RENAV] New playlist captured: {latest_m3u8}", flush=True)
+                        current_m3u8 = latest_m3u8
+                        last_m3u8_time = time.time()
+                        page.wait_for_timeout(2000)
+                        continue
+
+                    print("\n[WAITING] No playlist found after reload, "
+                          "waiting up to 60s for next stream...", flush=True)
+                    for _ in range(120):
+                        if time.time() - last_m3u8_time <= m3u8_stale_timeout:
+                            print("\n[NEXT] Stream activity detected, restarting...", flush=True)
+                            if latest_m3u8 and latest_m3u8 != current_m3u8:
+                                current_m3u8 = latest_m3u8
+                            break
+                        page.wait_for_timeout(500)
+                    else:
+                        print("\nNo stream activity detected for 60s, exiting.", flush=True)
+                        break
+
+                except KeyboardInterrupt:
+                    print("\nRecording stopped by user.", flush=True)
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                    os._exit(0)
+
+            if not args.watch:
+                break
+
+            print(f"\nStream ended. Checking again in {args.interval}s...", flush=True)
+            try:
+                time.sleep(args.interval)
             except KeyboardInterrupt:
-                print("\nRecording stopped by user.", flush=True)
-                proc.terminate()
-                try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                os._exit(0)
+                print("\nWatch mode stopped by user.", flush=True)
+                break
 
         page.close()
         if owns_browser:
@@ -223,6 +245,10 @@ def run():
                         help="CDP URL for existing browser (default: http://localhost:9222)")
     parser.add_argument("--monitor-time", type=int, default=15,
                         help="Seconds to wait for stream playlist (default: 15)")
+    parser.add_argument("--watch", action="store_true",
+                        help="Stay running, check for stream every N seconds")
+    parser.add_argument("--interval", type=int, default=300,
+                        help="Check interval in seconds (default: 300)")
     args = parser.parse_args()
 
     if args.login:
