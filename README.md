@@ -20,7 +20,7 @@ Saves the session to `~/.config/fansly-recorder/auth.json`. All subsequent runs 
 fansly-recorder --url https://fansly.com/.../stream -o output.ts
 ```
 
-The output filename defaults to `{streamer}_{timestamp}.ts`. Adding `-o output.ts` appends the timestamp before the extension (`output_20250101_120000.ts`).
+The output filename defaults to `{streamer}_{timestamp}.ts`. Use `--format` to change the container (e.g. `--format mkv`). Adding `-o output.ts` appends the timestamp before the extension (`output_20250101_120000.ts`).
 
 ### 3. Watch mode (poll for stream)
 
@@ -36,12 +36,15 @@ Keeps the browser open and polls for a stream every 300 seconds (configurable wi
 |------|---------|-------------|
 | `--url` | — | Stream page URL to record |
 | `-o` / `--output` | auto | Output file path template |
+| `--format` | `ts` | Output container format (ts, mkv, mp4, etc.) |
 | `--login` | — | Interactive login to save auth state |
 | `--storage-state` | `~/.config/fansly-recorder/auth.json` | Path to saved auth state file |
 | `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file) |
 | `--monitor-time` | `15` | Seconds to wait for stream playlist on page load |
 | `--watch` | — | Stay running, check for stream every N seconds |
 | `--interval` | `300` | Check interval in seconds (only used with `--watch`) |
+
+> **Note:** `--output` always takes precedence over `--format`. If you supply a template with an extension (e.g. `-o video.mkv`), that extension is used as-is. `--format` only affects the default filename when `-o` is omitted.
 
 ## Packages
 

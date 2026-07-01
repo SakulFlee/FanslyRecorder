@@ -31,12 +31,12 @@ def login(args):
         browser.close()
 
 
-def make_output_path(template, streamer):
+def make_output_path(template, streamer, fmt="ts"):
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     if template:
         base, ext = os.path.splitext(template)
         return f"{base}_{ts}{ext}"
-    return f"{streamer}_{ts}.ts"
+    return f"{streamer}_{ts}.{fmt}"
 
 
 def build_streamlink_cmd(m3u8_url, cookie_string, output):
@@ -133,7 +133,7 @@ def record_loop(args):
 
             while True:
                 cookie_string = get_cookie_string(context)
-                output = make_output_path(args.output, streamer)
+                output = make_output_path(args.output, streamer, args.format)
 
                 print(f"\nStarting stream recording to {output}...", flush=True)
                 print("Press Ctrl+C to stop.", flush=True)
@@ -237,6 +237,8 @@ def run():
     parser = argparse.ArgumentParser(description="Fansly stream recorder")
     parser.add_argument("--url", help="Stream URL to record")
     parser.add_argument("-o", "--output", help="Output file path template")
+    parser.add_argument("--format", default="ts",
+                        help="Output container format (ts, mkv, mp4, etc.) (default: ts)")
     parser.add_argument("--login", action="store_true",
                         help="Interactive login to save authentication state")
     parser.add_argument("--storage-state", default=DEFAULT_STORAGE,
