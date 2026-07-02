@@ -63,7 +63,7 @@ def record_loop(args):
         print(f"No saved authentication state found at {storage_path}.")
         print(f"  [L] Login now (saves to {storage_path})")
         print(f"  [C] Connect via CDP ({args.cdp_url})")
-        print(f"  [Q] Quit")
+        print("  [Q] Quit")
         choice = input("Choose [L/c/q]: ").strip().lower()
         if choice in ("", "l"):
             login(args)
