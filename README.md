@@ -20,7 +20,9 @@ Saves the session to `~/.config/fansly-recorder/auth.json`. All subsequent runs 
 fansly-recorder --url https://fansly.com/.../stream -o output.ts
 ```
 
-The output filename defaults to `{streamer}_{timestamp}.ts`. Use `--format` to change the container (e.g. `--format mkv`). Adding `-o output.ts` appends the timestamp before the extension (`output_20250101_120000.ts`).
+The output filename defaults to `{streamer}_{timestamp}.ts`. Use `--format` to change the container (e.g. `--format mkv`). Adding `-o output` sets the filename base; the extension comes from `--format`.
+
+When the stream URL refreshes mid-recording (token rotation), the file is split into numbered parts (e.g. `output_part0001.ts`, `output_part0002.ts`). These are automatically concatenated into one final file when the stream ends. Use `--no-concat` to keep the raw `.ts` parts.
 
 ### 3. Watch mode (poll for stream)
 
@@ -37,6 +39,7 @@ Keeps the browser open and polls for a stream every 300 seconds (configurable wi
 | `--url` | — | Stream page URL to record |
 | `-o` / `--output` | auto | Output file path template |
 | `--format` | `ts` | Output container format (ts, mkv, mp4, etc.) |
+| `--no-concat` | — | Skip concatenation, keep raw .ts part files |
 | `--login` | — | Interactive login to save auth state |
 | `--storage-state` | `~/.config/fansly-recorder/auth.json` | Path to saved auth state file |
 | `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file) |
@@ -44,7 +47,7 @@ Keeps the browser open and polls for a stream every 300 seconds (configurable wi
 | `--watch` | — | Stay running, check for stream every N seconds |
 | `--interval` | `300` | Check interval in seconds (only used with `--watch`) |
 
-> **Note:** `--output` always takes precedence over `--format`. If you supply a template with an extension (e.g. `-o video.mkv`), that extension is used as-is. `--format` only affects the default filename when `-o` is omitted.
+> **Note:** `--format` controls the final output container extension, overriding any extension from `-o`. Part files are always `.ts` and written alongside the final output. Concatenation uses `cat` for `.ts` output and `ffmpeg -c copy` for other formats (no re-encoding).
 
 ## Packages
 
@@ -114,9 +117,9 @@ docker run --rm -v "$PWD:/data" ghcr.io/sakulflee/fansly-recorder \
 
 3. **Recording**: The m3u8 URL is passed to `streamlink` as `hlsvariant://...`. Streamlink handles HLS segment downloading and reassembly.
 
-4. **Stream Transitions**: The browser stays alive. If a new m3u8 URL appears (token refresh / stream restart), the old streamlink process is killed and a new one launched with the updated URL.
+4. **Stream Transitions**: The browser stays alive. If a new m3u8 URL appears (token refresh / stream restart), the old streamlink process is killed and a new one launched with the updated URL. Each segment is written as a numbered `.ts` part file.
 
-5. **Graceful Exit**: When streamlink exits and no new m3u8 is seen for 60 seconds, the script exits (or returns to polling if `--watch` is set). Pressing Ctrl+C calls `os._exit(0)` (Playwright cleanup hangs on interrupt).
+5. **Graceful Exit**: When streamlink exits and no new m3u8 is seen for 60 seconds, all part files are concatenated into the final output and the parts are cleaned up. Pressing Ctrl+C during recording also triggers concatenation before exiting. Watch mode returns to polling after each stream.
 
 6. **Watch Mode**: With `--watch`, the detection and recording phases are wrapped in a retry loop. If no stream is found (or a previous recording ends), the script sleeps for `--interval` seconds and checks again. The browser stays open and the request handler stays registered throughout.
 

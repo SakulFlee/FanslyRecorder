@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import sys
+import shutil
 import time
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -31,12 +32,52 @@ def login(args):
         browser.close()
 
 
-def make_output_path(template, streamer, fmt="ts"):
+def make_final_path(template, streamer, fmt="ts"):
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     if template:
-        base, ext = os.path.splitext(template)
-        return f"{base}_{ts}{ext}"
+        base, _ = os.path.splitext(template)
+        return f"{base}_{ts}.{fmt}"
     return f"{streamer}_{ts}.{fmt}"
+
+
+def make_part_path(final_path, part_num):
+    base, _ = os.path.splitext(final_path)
+    return f"{base}_part{part_num:04d}.ts"
+
+
+def concat_parts(part_files, final_path):
+    if not part_files:
+        return
+
+    if len(part_files) == 1:
+        os.rename(part_files[0], final_path)
+        return
+
+    parts_dir = os.path.dirname(os.path.abspath(final_path))
+    fmt = final_path.rsplit('.', 1)[-1]
+
+    if fmt == "ts":
+        with open(final_path, 'wb') as out:
+            for pf in part_files:
+                with open(pf, 'rb') as f:
+                    shutil.copyfileobj(f, out)
+    else:
+        filelist = os.path.join(parts_dir, '.filelist.txt')
+        try:
+            with open(filelist, 'w') as fl:
+                for pf in part_files:
+                    fl.write(f"file '{os.path.abspath(pf)}'\n")
+            subprocess.run(
+                ["ffmpeg", "-f", "concat", "-safe", "0",
+                 "-i", filelist, "-c", "copy", final_path],
+                check=True, capture_output=True
+            )
+        finally:
+            if os.path.exists(filelist):
+                os.remove(filelist)
+
+    for pf in part_files:
+        os.remove(pf)
 
 
 def build_streamlink_cmd(m3u8_url, cookie_string, output):
@@ -131,15 +172,22 @@ def record_loop(args):
             current_m3u8 = latest_m3u8
             last_m3u8_time = time.time()
 
+            final_output = make_final_path(args.output, streamer, args.format)
+            part_files = []
+            part_counter = 0
+            user_stopped = False
+
             while True:
                 cookie_string = get_cookie_string(context)
-                output = make_output_path(args.output, streamer, args.format)
+                part_counter += 1
+                part_path = make_part_path(final_output, part_counter)
+                part_files.append(part_path)
 
-                print(f"\nStarting stream recording to {output}...", flush=True)
+                print(f"\nStarting stream recording to {part_path}...", flush=True)
                 print("Press Ctrl+C to stop.", flush=True)
 
                 proc = subprocess.Popen(
-                    build_streamlink_cmd(current_m3u8, cookie_string, output),
+                    build_streamlink_cmd(current_m3u8, cookie_string, part_path),
                     start_new_session=True,
                 )
 
@@ -215,8 +263,20 @@ def record_loop(args):
                         proc.wait(timeout=5)
                     except subprocess.TimeoutExpired:
                         proc.kill()
-                    os._exit(0)
+                    user_stopped = True
+                    break
 
+            if not args.no_concat and part_files:
+                part_count = len(part_files)
+                print(f"\nConcatenating {part_count} part{'s' if part_count > 1 else ''} into {final_output}...", flush=True)
+                try:
+                    concat_parts(part_files, final_output)
+                    print(f"Done: {final_output}", flush=True)
+                except Exception as e:
+                    print(f"[ERROR] Concatenation failed: {e}", file=sys.stderr, flush=True)
+
+            if user_stopped:
+                break
             if not args.watch:
                 break
 
@@ -239,6 +299,8 @@ def run():
     parser.add_argument("-o", "--output", help="Output file path template")
     parser.add_argument("--format", default="ts",
                         help="Output container format (ts, mkv, mp4, etc.) (default: ts)")
+    parser.add_argument("--no-concat", action="store_true",
+                        help="Skip concatenation, keep .ts part files")
     parser.add_argument("--login", action="store_true",
                         help="Interactive login to save authentication state")
     parser.add_argument("--storage-state", default=DEFAULT_STORAGE,
@@ -252,6 +314,11 @@ def run():
     parser.add_argument("--interval", type=int, default=300,
                         help="Check interval in seconds (default: 300)")
     args = parser.parse_args()
+
+    if args.format != "ts" and args.no_concat:
+        print(f"Error: --no-concat cannot be used with --format {args.format} "
+              f"(concatenation is required for non-TS output)", file=sys.stderr, flush=True)
+        sys.exit(1)
 
     if args.login:
         login(args)
