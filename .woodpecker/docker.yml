@@ -11,7 +11,7 @@ steps:
       - nix build .#dockerImage --accept-flake-config --fallback --extra-experimental-features 'nix-command flakes'
       - df -h
       - mkdir -p /etc/containers && echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
-      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-creds="$FORGEJO_USER:$FORGEJO_TOKEN"
+      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-registry-token="$FORGEJO_TOKEN"
     environment:
       FORGEJO_USER:
         from_secret: FORGEJO_USER
