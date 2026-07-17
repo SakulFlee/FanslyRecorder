@@ -6,10 +6,10 @@ steps:
   release:
     image: python:3.13-slim
     environment:
-      FORGEJO_USERNAME:
-        from_secret: FORGEJO_USERNAME
-      FORGEJO_PASSWORD:
-        from_secret: FORGEJO_PASSWORD
+      FORGEJO_USER:
+        from_secret: FORGEJO_USER
+      FORGEJO_TOKEN:
+        from_secret: FORGEJO_TOKEN
     commands:
       - apt-get update && apt-get install -y curl jq binutils
       - pip install pyinstaller playwright
@@ -18,12 +18,12 @@ steps:
         RELEASE_JSON=$(curl -s -X 'POST' \
           "https://forgejo.sakul-flee.de/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \
           -H "accept: application/json" \
-          -H "Authorization: Bearer $FORGEJO_PASSWORD" \
+          -H "Authorization: Bearer $FORGEJO_TOKEN" \
           -H "Content-Type: application/json" \
           -d "{\"tag_name\": \"${CI_COMMIT_TAG}\", \"target_commitish\": \"${CI_COMMIT_SHA}\", \"name\": \"Release ${CI_COMMIT_TAG}\", \"body\": \"Automatic release from Woodpecker CI Build #${CI_PIPELINE_NUMBER}\", \"draft\": false, \"prerelease\": false}")
       - RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
       - |
         curl -X 'POST' \
           "https://forgejo.sakul-flee.de/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases/${RELEASE_ID}/assets" \
-          -H "Authorization: Bearer $FORGEJO_PASSWORD" \
+          -H "Authorization: Bearer $FORGEJO_TOKEN" \
           -F "attachment=@dist/fansly-recorder"
