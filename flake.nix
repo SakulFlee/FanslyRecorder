@@ -31,7 +31,7 @@
         ];
         text = ''
           export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-          exec "${pythonWithPlaywright}/bin/python" "${./main.py}" "$@"
+          exec "${pythonWithPlaywright}/bin/python" "${self}/main.py" "$@"
         '';
       };
     in
