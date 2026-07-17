@@ -11,8 +11,9 @@ steps:
       - nix build .#dockerImage --accept-flake-config --fallback --extra-experimental-features 'nix-command flakes'
       - df -h
       - mkdir -p /etc/containers && echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
-      - export > /tmp/env.debug
-      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c sh -c 'echo "TOKEN length: ${#FORGEJO_TOKEN}"; echo "USER: $FORGEJO_USER"; skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-registry-token="$FORGEJO_TOKEN"'
+      - "echo TOKEN length: ${#FORGEJO_TOKEN}"
+      - "echo USER: $FORGEJO_USER"
+      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest} --dest-registry-token="$FORGEJO_TOKEN"
     environment:
       FORGEJO_USER:
         from_secret: FORGEJO_USER
