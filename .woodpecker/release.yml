@@ -7,9 +7,9 @@ steps:
     image: python:3.13-slim
     environment:
       FORGEJO_USER:
-        from_secret: FORGEJO_USER
+        from_secret: forgejo_user
       FORGEJO_TOKEN:
-        from_secret: FORGEJO_TOKEN
+        from_secret: forgejo_token
     commands:
       - apt-get update && apt-get install -y curl jq binutils
       - pip install pyinstaller playwright
