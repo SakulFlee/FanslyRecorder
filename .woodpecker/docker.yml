@@ -8,8 +8,8 @@ steps:
     commands:
       - nix store gc --extra-experimental-features 'nix-command flakes'
       - nix build .#dockerImage --accept-flake-config --fallback --extra-experimental-features 'nix-command flakes'
-      - mkdir -p /etc/containers ~/.docker && echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
-      - echo "{\"auths\":{\"forgejo.sakul-flee.de\":{\"auth\":\"$(echo -n $FORGEJO_USER:$FORGEJO_TOKEN | base64 -w0)\"}}}" > ~/.docker/config.json
+      - mkdir -p /etc/containers && echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
+      - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo login --username "$FORGEJO_USER" --password "$FORGEJO_TOKEN" forgejo.sakul-flee.de
       - nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c skopeo copy docker-archive:result docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${CI_COMMIT_TAG:-latest}
     environment:
       FORGEJO_USER:
