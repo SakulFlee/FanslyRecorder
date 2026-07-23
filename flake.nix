@@ -7,59 +7,91 @@
 
   outputs = { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
 
-      # Only Chromium + headless shell (~450 MB) instead of all browsers (~1.1 GB)
-      playwrightBrowsers = pkgs.playwright-driver.selectBrowsers {
-        withChromium = true;
-        withChromiumHeadlessShell = true;
-        withFfmpeg = false;
-        withFirefox = false;
-        withWebkit = false;
-      };
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system);
 
-      pythonWithPlaywright = pkgs.python314.withPackages (ps: [ ps.playwright ]);
+      pkgsFor = system: nixpkgs.legacyPackages.${system};
 
-      app = pkgs.writeShellApplication {
-        name = "fansly-recorder";
-        runtimeInputs = with pkgs; [
-          pythonWithPlaywright
-          playwrightBrowsers
-          streamlink
-          ffmpeg
-        ];
-        text = ''
-          export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-          exec "${pythonWithPlaywright}/bin/python" "${self}/main.py" "$@"
-        '';
-      };
-    in
-    {
-      devShells.${system}.default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          git
-          ffmpeg
-          python314
-          python314Packages.playwright
-          playwrightBrowsers
-        ];
+      mkApp = system:
+        let
+          pkgs = pkgsFor system;
 
-        shellHook = ''
-          export PATH="${pkgs.streamlink}/bin:$PATH"
-          export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-        '';
-      };
+          playwrightBrowsers = pkgs.playwright-driver.selectBrowsers {
+            withChromium = true;
+            withChromiumHeadlessShell = true;
+            withFfmpeg = false;
+            withFirefox = false;
+            withWebkit = false;
+          };
 
-      packages.${system} = {
-        default = app;
+          pythonWithPlaywright = pkgs.python314.withPackages (ps: [ ps.playwright ]);
+        in
+        pkgs.writeShellApplication {
+          name = "fansly-recorder";
+          runtimeInputs = with pkgs; [
+            pythonWithPlaywright
+            playwrightBrowsers
+            streamlink
+            ffmpeg
+          ];
+          text = ''
+            export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
+            exec "${pythonWithPlaywright}/bin/python" "${self}/main.py" "$@"
+          '';
+        };
 
-        dockerImage = pkgs.dockerTools.buildLayeredImage {
+      mkDevShell = system:
+        let
+          pkgs = pkgsFor system;
+
+          playwrightBrowsers = pkgs.playwright-driver.selectBrowsers {
+            withChromium = true;
+            withChromiumHeadlessShell = true;
+            withFfmpeg = false;
+            withFirefox = false;
+            withWebkit = false;
+          };
+        in
+        pkgs.mkShell {
+          buildInputs = with pkgs; [
+            git
+            ffmpeg
+            python314
+            python314Packages.playwright
+            playwrightBrowsers
+          ];
+
+          shellHook = ''
+            export PATH="${pkgs.streamlink}/bin:$PATH"
+            export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
+          '';
+        };
+
+      mkDockerImage = system:
+        let
+          pkgs = pkgsFor system;
+        in
+        pkgs.dockerTools.buildLayeredImage {
           name = "fansly-recorder";
           tag = "latest";
-          contents = [ app ];
+          contents = [ self.packages.${system}.default ];
           config.Entrypoint = [ "fansly-recorder" ];
         };
-      };
+    in
+    {
+      devShells = forAllSystems (system: {
+        default = mkDevShell system;
+      });
+
+      packages = forAllSystems (system: {
+        default = mkApp system;
+        dockerImage = mkDockerImage system;
+      });
     };
 }
