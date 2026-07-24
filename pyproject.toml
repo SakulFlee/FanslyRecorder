@@ -1,6 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fansly-recorder"
-version = "0.1.0"
+version = "0.1.18"
 description = "Record Fansly live streams"
+readme = "README.md"
 requires-python = ">=3.13"
+license = "MIT"
 dependencies = ["playwright"]
+
+[project.scripts]
+fansly-recorder = "fansly_recorder.__main__:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]

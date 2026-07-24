@@ -1,0 +1,9 @@
+post_install() {
+  echo "==> To use fansly-recorder, install Chromium for Playwright:"
+  echo "    playwright install chromium"
+}
+
+post_upgrade() {
+  echo "==> If recording fails after upgrade, reinstall Chromium:"
+  echo "    playwright install chromium"
+}

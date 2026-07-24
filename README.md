@@ -94,6 +94,34 @@ Pre-built binaries are attached to [GitHub Releases](https://github.com/SakulFle
 >
 > Set `PLAYWRIGHT_BROWSERS_PATH` to point elsewhere if needed.
 
+### Arch Linux
+
+An AUR-ready PKGBUILD is provided in the `arch/` directory.
+
+#### Install from AUR (when published)
+
+```sh
+# Using an AUR helper like yay or paru
+yay -S fansly-recorder
+```
+
+#### Build and install manually
+
+```sh
+cd arch/
+makepkg -si
+```
+
+This will install the `fansly-recorder` command and its dependencies.
+
+#### Post-install: Install Chromium
+
+After installation, you need to install Chromium for Playwright:
+
+```sh
+playwright install chromium
+```
+
 ### Docker
 
 Images are published to:
