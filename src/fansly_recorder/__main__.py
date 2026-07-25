@@ -1,11 +1,12 @@
 import argparse
 import os
+import shutil
 import subprocess
 import sys
-import shutil
 import time
-from datetime import datetime
-from playwright.sync_api import sync_playwright
+from datetime import UTC, datetime
+
+from playwright.sync_api import Error, sync_playwright
 
 DEFAULT_STORAGE = os.path.expanduser("~/.config/fansly-recorder/auth.json")
 FANSLY_BROWSER_CHANNEL = os.environ.get("FANSLY_BROWSER_CHANNEL")
@@ -34,7 +35,7 @@ def login(args):
 
 
 def make_final_path(template, streamer, fmt="ts"):
-    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    ts = datetime.now(UTC).strftime('%Y%m%d_%H%M%S')
     if template:
         base, _ = os.path.splitext(template)
         return f"{base}_{ts}.{fmt}"
@@ -145,7 +146,7 @@ def record_loop(args):
         print(f"Navigating to {args.url}...", flush=True)
         try:
             page.goto(args.url, wait_until="load", timeout=60000)
-        except Exception as e:
+        except Error as e:
             print(f"[WARNING] Page load timed out: {e}", file=sys.stderr, flush=True)
 
         while True:
@@ -228,7 +229,7 @@ def record_loop(args):
                     latest_m3u8 = None
                     try:
                         page.goto(args.url, wait_until="load", timeout=30000)
-                    except Exception as e:
+                    except Error as e:
                         print(f"[WARNING] Page reload timed out: {e}", file=sys.stderr, flush=True)
 
                     print(f"[RENAV] Page navigated, waiting up to {args.monitor_time}s for new playlist...", flush=True)
@@ -273,7 +274,7 @@ def record_loop(args):
                 try:
                     concat_parts(part_files, final_output)
                     print(f"Done: {final_output}", flush=True)
-                except Exception as e:
+                except (OSError, subprocess.CalledProcessError) as e:
                     print(f"[ERROR] Concatenation failed: {e}", file=sys.stderr, flush=True)
 
             if user_stopped:
