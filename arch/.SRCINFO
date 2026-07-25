@@ -14,7 +14,7 @@ pkgbase = fansly-recorder
 	depends = chromium
 	depends = streamlink
 	depends = ffmpeg
-	source = FanslyRecorder-0.1.18.tar.gz
+	source = https://github.com/SakulFlee/FanslyRecorder/archive/v0.1.18.tar.gz
 	sha256sums = SKIP
 
 pkgname = fansly-recorder
