@@ -112,15 +112,7 @@ cd arch/
 makepkg -si
 ```
 
-This will install the `fansly-recorder` command and its dependencies.
-
-#### Post-install: Install Chromium
-
-After installation, you need to install Chromium for Playwright:
-
-```sh
-playwright install chromium
-```
+This will install the `fansly-recorder` command and its dependencies. Chromium is pulled in automatically as a system dependency.
 
 ### Docker
 

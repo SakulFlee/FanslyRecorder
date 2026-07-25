@@ -13,7 +13,7 @@ steps:
     commands:
       - apt-get update && apt-get install -y curl jq binutils
       - pip install pyinstaller playwright
-      - pyinstaller --onefile --name fansly-recorder main.py
+      - pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py
       - |
         RELEASE_JSON=$(curl -s -X 'POST' \
           "https://forgejo.sakul-flee.de/api/v1/repos/${CI_REPO_OWNER}/${CI_REPO_NAME}/releases" \

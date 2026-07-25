@@ -34,7 +34,7 @@ jobs:
           python-version: "3.13"
       - run: pip install pyinstaller playwright
       - run: python -m playwright install chromium
-      - run: pyinstaller --onefile --name fansly-recorder main.py
+      - run: pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py
       - run: |
           asset="dist/fansly-recorder${{ runner.os == 'Windows' && '.exe' || '' }}"
           mv "$asset" "dist/fansly-recorder-${{ matrix.suffix }}"

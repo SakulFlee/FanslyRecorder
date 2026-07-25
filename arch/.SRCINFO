@@ -11,6 +11,7 @@ pkgbase = fansly-recorder
 	makedepends = python-setuptools
 	depends = python
 	depends = python-playwright
+	depends = chromium
 	depends = streamlink
 	depends = ffmpeg
 	source = FanslyRecorder-0.1.18.tar.gz

@@ -8,6 +8,7 @@ from datetime import datetime
 from playwright.sync_api import sync_playwright
 
 DEFAULT_STORAGE = os.path.expanduser("~/.config/fansly-recorder/auth.json")
+FANSLY_BROWSER_CHANNEL = os.environ.get("FANSLY_BROWSER_CHANNEL")
 
 
 def login(args):
@@ -18,7 +19,7 @@ def login(args):
     os.makedirs(os.path.dirname(args.storage_state) or ".", exist_ok=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=False, channel=FANSLY_BROWSER_CHANNEL)
         context = browser.new_context()
         page = context.new_page()
         page.goto("https://fansly.com", wait_until="load")
@@ -116,7 +117,7 @@ def record_loop(args):
     with sync_playwright() as p:
         if os.path.exists(storage_path):
             print(f"Using saved authentication state from {storage_path}", flush=True)
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(headless=True, channel=FANSLY_BROWSER_CHANNEL)
             context = browser.new_context(storage_state=storage_path)
             owns_browser = True
         else:
