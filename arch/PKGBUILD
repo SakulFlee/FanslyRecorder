@@ -19,7 +19,7 @@ makedepends=(
   python-setuptools
 )
 install=fansly-recorder.install
-source=("https://github.com/SakulFlee/FanslyRecorder/archive/v$pkgver.tar.gz")
+source=("FanslyRecorder-$pkgver.tar.gz::https://github.com/SakulFlee/FanslyRecorder/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {

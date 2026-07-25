@@ -17,3 +17,8 @@ result
 
 # PyCache
 __pycache__/
+
+# makepkg build artifacts
+arch/pkg/
+arch/src/
+arch/FanslyRecorder-*.tar.gz
