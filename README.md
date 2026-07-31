@@ -42,7 +42,7 @@ Keeps the browser open and polls for a stream every 300 seconds (configurable wi
 | `--no-concat` | — | Skip concatenation, keep raw .ts part files |
 | `--login` | — | Interactive login to save auth state |
 | `--storage-state` | `~/.config/fansly-recorder/auth.json` | Path to saved auth state file |
-| `--cdp-url` | `http://localhost:9222` | CDP URL for existing browser (fallback when no auth file) |
+| `--cdp-url` | `http://127.0.0.1:9222` | CDP URL for existing browser (fallback when no auth file) |
 | `--monitor-time` | `15` | Seconds to wait for stream playlist on page load |
 | `--watch` | — | Stay running, check for stream every N seconds |
 | `--interval` | `300` | Check interval in seconds (only used with `--watch`) |

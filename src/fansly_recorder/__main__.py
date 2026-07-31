@@ -307,8 +307,8 @@ def run():
                         help="Interactive login to save authentication state")
     parser.add_argument("--storage-state", default=DEFAULT_STORAGE,
                         help=f"Path to saved auth state file (default: {DEFAULT_STORAGE})")
-    parser.add_argument("--cdp-url", default="http://localhost:9222",
-                        help="CDP URL for existing browser (default: http://localhost:9222)")
+    parser.add_argument("--cdp-url", default="http://127.0.0.1:9222",
+                        help="CDP URL for existing browser (default: http://127.0.0.1:9222)")
     parser.add_argument("--monitor-time", type=int, default=15,
                         help="Seconds to wait for stream playlist (default: 15)")
     parser.add_argument("--watch", action="store_true",
