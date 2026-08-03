@@ -71,7 +71,7 @@ def concat_parts(part_files, final_path):
                     fl.write(f"file '{os.path.abspath(pf)}'\n")
             subprocess.run(
                 ["ffmpeg", "-f", "concat", "-safe", "0",
-                 "-i", filelist, "-c", "copy", final_path],
+                 "-i", filelist, "-c", "copy", os.path.abspath(final_path)],
                 check=True, capture_output=True
             )
         finally:
