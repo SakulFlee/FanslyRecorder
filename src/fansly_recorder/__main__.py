@@ -274,7 +274,11 @@ def record_loop(args):
                 try:
                     concat_parts(part_files, final_output)
                     print(f"Done: {final_output}", flush=True)
-                except (OSError, subprocess.CalledProcessError) as e:
+                except subprocess.CalledProcessError as e:
+                    print(f"[ERROR] Concatenation failed: {e}", file=sys.stderr, flush=True)
+                    if e.stderr:
+                        print(e.stderr.decode(errors="replace"), file=sys.stderr, flush=True)
+                except OSError as e:
                     print(f"[ERROR] Concatenation failed: {e}", file=sys.stderr, flush=True)
 
             if user_stopped:
