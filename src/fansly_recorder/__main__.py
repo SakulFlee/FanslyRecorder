@@ -48,6 +48,7 @@ def make_part_path(final_path, part_num):
 
 
 def concat_parts(part_files, final_path):
+    part_files = [pf for pf in part_files if os.path.getsize(pf) > 0]
     if not part_files:
         return
 
