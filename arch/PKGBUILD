@@ -1,6 +1,6 @@
 # Maintainer: SakulFlee <sakulflee@users.noreply.github.com>
 pkgname=fansly-recorder
-pkgver=0.1.18
+pkgver=0.1.24
 pkgrel=1
 pkgdesc="Record Fansly live streams"
 arch=('any')
@@ -34,9 +34,9 @@ package() {
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
   install -d "$pkgdir/etc/fansly-recorder"
-  echo 'export FANSLY_BROWSER_CHANNEL=chromium' > "$pkgdir/etc/fansly-recorder/env"
+  echo 'export FANSLY_BROWSER_CHANNEL=chromium' >"$pkgdir/etc/fansly-recorder/env"
 
-  cat > "$pkgdir/usr/bin/fansly-recorder" <<'WRAPPER'
+  cat >"$pkgdir/usr/bin/fansly-recorder" <<'WRAPPER'
 #!/bin/sh
 . /etc/fansly-recorder/env
 exec python -m fansly_recorder "$@"
