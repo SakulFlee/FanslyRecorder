@@ -42,7 +42,8 @@
           ];
           text = ''
             export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-            exec "${pythonWithPlaywright}/bin/python" "${self}/main.py" "$@"
+            export PYTHONPATH="${self}/src"
+            exec "${pythonWithPlaywright}/bin/python" -m fansly_recorder "$@"
           '';
         };
 
