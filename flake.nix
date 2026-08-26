@@ -80,7 +80,11 @@
         pkgs.dockerTools.buildLayeredImage {
           name = "fansly-recorder";
           tag = "latest";
-          contents = [ self.packages.${system}.default ];
+          contents = [
+            self.packages.${system}.default
+            pkgs.bash
+            pkgs.coreutils
+          ];
           config.Entrypoint = [ "fansly-recorder" ];
         };
     in
