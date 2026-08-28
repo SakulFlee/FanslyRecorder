@@ -8,18 +8,25 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    container: nixos/nix:latest
+    defaults:
+      run:
+        working-directory: repo
     env:
+      FORGEJO_TOKEN: ${{ forgejo.token }}
       FORGEJO_USER: ${{ secrets.FORGEJO_USER }}
-      FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+      FORGEJO_REGISTRY_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v27
+      - name: Checkout
+        run: |
+          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" repo
+          cd repo && git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
+      - name: Set tag
+        run: echo "IMAGE_TAG=$([ "${{ forgejo.event_name }}" = workflow_dispatch ] && echo latest || echo ${{ forgejo.ref_name }})" >> "$GITHUB_ENV"
       - name: Build image
         run: |
           nix store gc --extra-experimental-features 'nix-command flakes'
           nix build .#dockerImage --accept-flake-config --fallback --extra-experimental-features 'nix-command flakes'
-      - name: Set tag
-        run: echo "IMAGE_TAG=$([ "${{ forgejo.event_name }}" = workflow_dispatch ] && echo latest || echo ${{ forgejo.ref_name }})" >> "$GITHUB_ENV"
       - name: Push to Forgejo registry
         run: |
           mkdir -p /etc/containers
@@ -27,4 +34,4 @@ jobs:
           nix shell nixpkgs#skopeo --extra-experimental-features 'nix-command flakes' -c \
             skopeo copy docker-archive:result \
             "docker://forgejo.sakul-flee.de/sakulflee/fansly-recorder:${IMAGE_TAG}" \
-            --dest-creds="$FORGEJO_USER:$FORGEJO_TOKEN"
+            --dest-creds="$FORGEJO_USER:$FORGEJO_REGISTRY_TOKEN"

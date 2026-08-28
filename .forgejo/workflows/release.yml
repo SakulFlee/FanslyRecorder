@@ -7,28 +7,36 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    container: nixos/nix:latest
+    defaults:
+      run:
+        working-directory: repo
     env:
       FORGEJO_TOKEN: ${{ forgejo.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+      - name: Checkout
+        run: |
+          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" repo
+          cd repo && git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Build binary
         run: |
-          apt-get update && apt-get install -y curl jq binutils
-          pip install pyinstaller playwright
-          pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py
+          nix shell nixpkgs#python313 --extra-experimental-features 'nix-command flakes' -c "
+            python -m venv .venv
+            .venv/bin/pip install pyinstaller playwright
+            .venv/bin/pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py
+          "
       - name: Create release and upload asset
         run: |
-          OWNER="${FORGEJO_REPOSITORY%/*}"; REPO="${FORGEJO_REPOSITORY#*/}"
-          TAG="${{ forgejo.ref_name }}"; SHA="${{ forgejo.sha }}"; RUN="${{ forgejo.run_number }}"
-          RELEASE_JSON=$(curl -s -X POST \
-            "https://forgejo.sakul-flee.de/api/v1/repos/${OWNER}/${REPO}/releases" \
-            -H "accept: application/json" -H "Authorization: Bearer $FORGEJO_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"${TAG}\",\"target_commitish\":\"${SHA}\",\"name\":\"Release ${TAG}\",\"body\":\"Automatic release from Forgejo Actions run #${RUN}\",\"draft\":false,\"prerelease\":false}")
-          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id')
-          curl -X POST \
-            "https://forgejo.sakul-flee.de/api/v1/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets" \
-            -H "Authorization: Bearer $FORGEJO_TOKEN" -F "attachment=@dist/fansly-recorder"
+          nix shell nixpkgs#curl nixpkgs#jq --extra-experimental-features 'nix-command flakes' -c '
+            OWNER="${FORGEJO_REPOSITORY%/*}"; REPO="${FORGEJO_REPOSITORY#*/}"
+            TAG="${{ forgejo.ref_name }}"; SHA="${{ forgejo.sha }}"; RUN="${{ forgejo.run_number }}"
+            RELEASE_JSON=$(curl -s -X POST \
+              "https://forgejo.sakul-flee.de/api/v1/repos/${OWNER}/${REPO}/releases" \
+              -H "accept: application/json" -H "Authorization: Bearer ${FORGEJO_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"${TAG}\",\"target_commitish\":\"${SHA}\",\"name\":\"Release ${TAG}\",\"body\":\"Automatic release from Forgejo Actions run #${RUN}\",\"draft\":false,\"prerelease\":false}")
+            RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r ".id")
+            curl -X POST \
+              "https://forgejo.sakul-flee.de/api/v1/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets" \
+              -H "Authorization: Bearer ${FORGEJO_TOKEN}" -F "attachment=@dist/fansly-recorder"
+          '
