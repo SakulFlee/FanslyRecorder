@@ -11,7 +11,7 @@ jobs:
     container: nixos/nix:latest
     env:
       FORGEJO_TOKEN: ${{ forgejo.token }}
-      FORGEJO_REGISTRY_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+      FORGEJO_REGISTRY_TOKEN: ${{ secrets.OCI_PUSH_TOKEN }}
     steps:
       - name: Checkout
         run: |
