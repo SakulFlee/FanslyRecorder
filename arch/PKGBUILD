@@ -1,6 +1,6 @@
 # Maintainer: SakulFlee <sakulflee@users.noreply.github.com>
 pkgname=fansly-recorder
-pkgver=0.1.30
+pkgver=0.1.31
 pkgrel=1
 pkgdesc="Record Fansly live streams"
 arch=('any')
