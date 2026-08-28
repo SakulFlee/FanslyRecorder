@@ -10,15 +10,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     container: nixos/nix:latest
-    defaults:
-      run:
-        working-directory: repo
     env:
       FORGEJO_TOKEN: ${{ forgejo.token }}
     steps:
       - name: Checkout
         run: |
-          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" repo
-          cd repo && git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
+          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" .
+          git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Ruff
         run: nix shell nixpkgs#ruff --extra-experimental-features 'nix-command flakes' -c ruff check src/

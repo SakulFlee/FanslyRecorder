@@ -8,16 +8,13 @@ jobs:
   release:
     runs-on: ubuntu-latest
     container: nixos/nix:latest
-    defaults:
-      run:
-        working-directory: repo
     env:
       FORGEJO_TOKEN: ${{ forgejo.token }}
     steps:
       - name: Checkout
         run: |
-          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" repo
-          cd repo && git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
+          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" .
+          git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Build binary
         run: |
           nix shell nixpkgs#python313 --extra-experimental-features 'nix-command flakes' -c "

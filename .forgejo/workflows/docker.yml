@@ -9,9 +9,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     container: nixos/nix:latest
-    defaults:
-      run:
-        working-directory: repo
     env:
       FORGEJO_TOKEN: ${{ forgejo.token }}
       FORGEJO_USER: ${{ secrets.FORGEJO_USER }}
@@ -19,8 +16,8 @@ jobs:
     steps:
       - name: Checkout
         run: |
-          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" repo
-          cd repo && git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
+          git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" .
+          git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Set tag
         run: echo "IMAGE_TAG=$([ "${{ forgejo.event_name }}" = workflow_dispatch ] && echo latest || echo ${{ forgejo.ref_name }})" >> "$GITHUB_ENV"
       - name: Build image
