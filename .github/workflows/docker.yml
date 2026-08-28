@@ -3,6 +3,7 @@ name: Docker
 on:
   push:
     tags: ["v*"]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,6 +14,7 @@ jobs:
       - uses: cachix/install-nix-action@v27
       - run: nix build .#dockerImage --fallback --extra-experimental-features 'nix-command flakes'
       - run: docker load < result
-      - run: docker tag fansly-recorder ghcr.io/sakulflee/fansly-recorder:${{ github.ref_name }}
+      - run: echo "IMAGE_TAG=$([ "${{ github.ref_type }}" = "branch" ] && echo latest || echo ${{ github.ref_name }})" >> "$GITHUB_ENV"
+      - run: docker tag fansly-recorder ghcr.io/sakulflee/fansly-recorder:${IMAGE_TAG}
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      - run: docker push ghcr.io/sakulflee/fansly-recorder:${{ github.ref_name }}
+      - run: docker push ghcr.io/sakulflee/fansly-recorder:${IMAGE_TAG}

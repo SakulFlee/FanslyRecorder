@@ -29,22 +29,25 @@
             withFirefox = false;
             withWebkit = false;
           };
-
-          pythonWithPlaywright = pkgs.python314.withPackages (ps: [ ps.playwright ]);
         in
-        pkgs.writeShellApplication {
-          name = "fansly-recorder";
-          runtimeInputs = with pkgs; [
-            pythonWithPlaywright
-            playwrightBrowsers
-            streamlink
-            ffmpeg
+        pkgs.python314.pkgs.buildPythonApplication {
+          pname = "fansly-recorder";
+          version = "0.1.30";
+          src = ./.;
+          format = "pyproject";
+          nativeBuildInputs = with pkgs.python314Packages; [
+            setuptools
+            wheel
           ];
-          text = ''
-            export PLAYWRIGHT_BROWSERS_PATH="${playwrightBrowsers}"
-            export PYTHONPATH="${self}/src"
-            exec "${pythonWithPlaywright}/bin/python" -m fansly_recorder "$@"
+          propagatedBuildInputs = with pkgs.python314Packages; [
+            playwright
+          ];
+          postInstall = ''
+            wrapProgram "$out/bin/fansly-recorder" \
+              --set PLAYWRIGHT_BROWSERS_PATH "${playwrightBrowsers}" \
+              --prefix PATH : "${pkgs.streamlink}/bin:${pkgs.ffmpeg}/bin"
           '';
+          doCheck = false;
         };
 
       mkDevShell = system:

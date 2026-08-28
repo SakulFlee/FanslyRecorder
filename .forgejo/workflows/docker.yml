@@ -3,6 +3,7 @@ name: Docker
 on:
   push:
     tags: ["v*"]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -18,7 +19,12 @@ jobs:
           git clone "https://oauth2:${FORGEJO_TOKEN}@forgejo.sakul-flee.de/${FORGEJO_REPOSITORY}.git" .
           git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Set tag
-        run: echo "IMAGE_TAG=$([ "${{ forgejo.event_name }}" = workflow_dispatch ] && echo latest || echo ${{ forgejo.ref_name }})" >> "$GITHUB_ENV"
+        run: |
+          if [ "${{ forgejo.event_name }}" = "workflow_dispatch" ] || [ "${{ forgejo.ref_type }}" = "branch" ]; then
+            echo "IMAGE_TAG=latest" >> "$GITHUB_ENV"
+          else
+            echo "IMAGE_TAG=${{ forgejo.ref_name }}" >> "$GITHUB_ENV"
+          fi
       - name: Build image
         run: |
           nix store gc --extra-experimental-features 'nix-command flakes'
