@@ -17,7 +17,7 @@ jobs:
           git -c advice.detachedHead=false checkout "${FORGEJO_REF_NAME}"
       - name: Build binary
         run: |
-          nix shell nixpkgs#python313 --extra-experimental-features 'nix-command flakes' -c bash -c 'python -m venv .venv && .venv/bin/pip install pyinstaller playwright && .venv/bin/pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py'
+          nix shell nixpkgs#python313 nixpkgs#glibc.bin nixpkgs#binutils --extra-experimental-features 'nix-command flakes' -c bash -c 'python -m venv .venv && .venv/bin/pip install pyinstaller playwright && .venv/bin/pyinstaller --onefile --name fansly-recorder src/fansly_recorder/__main__.py'
       - name: Create release and upload asset
         run: |
           nix shell nixpkgs#curl nixpkgs#jq --extra-experimental-features 'nix-command flakes' -c bash -c '
